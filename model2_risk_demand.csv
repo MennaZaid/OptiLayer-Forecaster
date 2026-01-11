@@ -1,0 +1,5 @@
+risk_level,total_xlpe_tons,cable_count,avg_urgency
+Critical,1972.5,775,4.548387096774194
+High,1470.0,700,9.0
+Low,712.5,475,15.0
+Medium,990.0,550,12.0
