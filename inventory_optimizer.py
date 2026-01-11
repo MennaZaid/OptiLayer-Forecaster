@@ -324,10 +324,15 @@ def main():
     try:
         # Try to load Model 2 forecast
         forecast_df = pd.read_csv('outputs/model2_adjusted_forecast.csv')
-        forecast_df.columns = ['year', 'demand_tons', 'adjusted_demand']
-        forecast_df = forecast_df[['year', 'adjusted_demand']].rename(
-            columns={'adjusted_demand': 'demand_tons'}
-        )
+        # Use adjusted demand column (last column)
+        if 'Adjusted_XLPE_Demand_Tons' in forecast_df.columns:
+            forecast_df = forecast_df[['Year', 'Adjusted_XLPE_Demand_Tons']].rename(
+                columns={'Year': 'year', 'Adjusted_XLPE_Demand_Tons': 'demand_tons'}
+            )
+        else:
+            # Fallback: use last two columns
+            forecast_df = forecast_df.iloc[:, [0, -1]]
+            forecast_df.columns = ['year', 'demand_tons']
     except FileNotFoundError:
         print("[WARNING] Model 2 forecast not found. Using Model 1 aggregated data.")
         # Use aggregated demand from Model 1

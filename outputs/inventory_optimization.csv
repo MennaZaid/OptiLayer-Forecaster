@@ -1,0 +1,2 @@
+eoq,safety_stock,reorder_point,max_inventory,avg_inventory,num_orders_per_year,order_frequency_days,total_cost,ordering_cost,holding_cost,cost_savings_vs_naive,cost_savings_percent,annual_demand,daily_demand,service_level
+78.83,297.04,359.68,375.87,336.45500000000004,9.459542233739873,26.428340169391195,255349.68,23648.855584349683,201873.00000000003,419677.11142857134,62.17191921233246,745.6957142857142,2.982782857142857,0.95
