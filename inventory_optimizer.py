@@ -208,12 +208,12 @@ def optimize_xlpe_inventory(demand_forecast_df, config=InventoryConfig):
     
     # Print results
     print(f"\n[OPTIMIZATION RESULTS]")
-    print(f"  ┌─────────────────────────────────────────────────┐")
-    print(f"  │  Economic Order Quantity (EOQ):  {eoq:>10,.0f} tons  │")
-    print(f"  │  Safety Stock:                   {safety_stock:>10,.0f} tons  │")
-    print(f"  │  Reorder Point (ROP):            {rop:>10,.0f} tons  │")
-    print(f"  │  Maximum Inventory:              {max_inventory:>10,.0f} tons  │")
-    print(f"  └─────────────────────────────────────────────────┘")
+    print(f"  " + "="*50)
+    print(f"  Economic Order Quantity (EOQ):  {eoq:>10,.0f} tons")
+    print(f"  Safety Stock:                   {safety_stock:>10,.0f} tons")
+    print(f"  Reorder Point (ROP):            {rop:>10,.0f} tons")
+    print(f"  Maximum Inventory:              {max_inventory:>10,.0f} tons")
+    print(f"  " + "="*50)
     
     print(f"\n[OPERATIONAL METRICS]")
     print(f"  • Orders per Year:      {num_orders:.1f}")

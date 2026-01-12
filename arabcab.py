@@ -342,18 +342,15 @@ def main():
     print("\n" + "="*60)
     print("  MODEL 1 COMPLETE - SUMMARY")
     print("="*60)
-    print(f"""
-    ┌────────────────────────────────────────────────────────┐
-    │  HEALTH INDEX MODEL (Ridge Regression)                 │
-    │  • R²: {health_metrics['r2']:.4f}  • MAE: {health_metrics['mae']:.3f} (1-5 scale)       │
-    ├────────────────────────────────────────────────────────┤
-    │  RISK CLASSIFIER (Logistic Regression)                 │
-    │  • Accuracy: {risk_acc:.2%}                               │
-    ├────────────────────────────────────────────────────────┤
-    │  URGENCY MODEL (Ridge Regression)                      │
-    │  • R²: {urgency_metrics['r2']:.4f}  • MAE: {urgency_metrics['mae']:.2f} yrs              │
-    └────────────────────────────────────────────────────────┘
-    """)
+    print(f"  HEALTH INDEX MODEL (Ridge Regression)")
+    print(f"    R-squared: {health_metrics['r2']:.4f}")
+    print(f"    MAE: {health_metrics['mae']:.3f} (1-5 scale)")
+    print(f"  RISK CLASSIFIER (Logistic Regression)")
+    print(f"    Accuracy: {risk_acc:.2%}")
+    print(f"  URGENCY MODEL (Ridge Regression)")
+    print(f"    R-squared: {urgency_metrics['r2']:.4f}")
+    print(f"    MAE: {urgency_metrics['mae']:.2f} years")
+    print("="*60)
     print("[COMPLETE] Model 1 outputs ready for Model 2 (Market Demand)")
     print("[COMPLETE] Dashboard can now use these models for predictions")
     

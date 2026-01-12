@@ -25,7 +25,7 @@ def test_imports():
     for module, package in packages.items():
         try:
             __import__(module)
-            print(f"✅ {package}")
+            print(f"[OK] {package}")
         except ImportError:
             print(f"❌ {package} - MISSING")
             missing.append(package)
@@ -33,7 +33,7 @@ def test_imports():
     # Optional: Prophet
     try:
         import prophet
-        print(f"✅ prophet (optional)")
+        print(f"[OK] prophet (optional)")
     except ImportError:
         print(f"⚠️  prophet - NOT INSTALLED (optional, will use Gradient Boosting only)")
     

@@ -497,28 +497,17 @@ def main():
     print("="*70)
     
     if metrics_prophet:
-        print(f"""
-    ┌──────────────────────────────────────────────────────────┐
-    │  PROPHET MODEL                                           │
-    │  • Accuracy: {metrics_prophet['accuracy']:.1f}%  • MAPE: {metrics_prophet['mape']*100:.2f}%              │
-    ├──────────────────────────────────────────────────────────┤
-    │  GRADIENT BOOSTING MODEL                                 │
-    │  • Accuracy: {metrics_ml['accuracy']:.1f}%  • MAPE: {metrics_ml['mape']*100:.2f}%               │
-    ├──────────────────────────────────────────────────────────┤
-    │  ENSEMBLE FORECAST ({FORECAST_YEARS} Years)                            │
-    │  • Total Demand: {annual_forecast['annual_demand_tons'].sum():>10,.0f} tons             │
-    └──────────────────────────────────────────────────────────┘
-        """)
+        print("  PROPHET MODEL")
+        print(f"    Accuracy: {metrics_prophet['accuracy']:.1f}%  MAPE: {metrics_prophet['mape']*100:.2f}%")
+        print("  GRADIENT BOOSTING MODEL")
+        print(f"    Accuracy: {metrics_ml['accuracy']:.1f}%  MAPE: {metrics_ml['mape']*100:.2f}%")
+        print(f"  ENSEMBLE FORECAST ({FORECAST_YEARS} Years)")
+        print(f"    Total Demand: {annual_forecast['annual_demand_tons'].sum():,.0f} tons")
     else:
-        print(f"""
-    ┌──────────────────────────────────────────────────────────┐
-    │  GRADIENT BOOSTING MODEL                                 │
-    │  • Accuracy: {metrics_ml['accuracy']:.1f}%  • MAPE: {metrics_ml['mape']*100:.2f}%               │
-    ├──────────────────────────────────────────────────────────┤
-    │  FORECAST ({FORECAST_YEARS} Years)                                    │
-    │  • Total Demand: {annual_forecast['annual_demand_tons'].sum():>10,.0f} tons             │
-    └──────────────────────────────────────────────────────────┘
-        """)
+        print("  GRADIENT BOOSTING MODEL")
+        print(f"    Accuracy: {metrics_ml['accuracy']:.1f}%  MAPE: {metrics_ml['mape']*100:.2f}%")
+        print(f"  FORECAST ({FORECAST_YEARS} Years)")
+        print(f"    Total Demand: {annual_forecast['annual_demand_tons'].sum():,.0f} tons")
     
     print("[COMPLETE] Forecasts ready for inventory optimization and dashboard")
     
