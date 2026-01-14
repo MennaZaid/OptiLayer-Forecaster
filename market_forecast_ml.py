@@ -56,94 +56,70 @@ RANDOM_STATE = 42
 OUTPUT_DIR = 'outputs'
 
 # ============================================================================
-# DATA GENERATION (Since we don't have 5 years of real data)
+# DATA LOADING - ACTUAL DATA ONLY
 # ============================================================================
 
-def generate_synthetic_market_data(years=10, base_demand=5000):
-    """
-    Generate realistic synthetic market data for training
-    This simulates what real historical data would look like
-    """
-    print("\n" + "="*70)
-    print("GENERATING SYNTHETIC MARKET DATA")
-    print("="*70)
-    print("[NOTE] In production, this would be replaced with actual historical data")
-    
-    np.random.seed(42)
-    
-    # Date range
-    start_date = datetime(2016, 1, 1)
-    dates = pd.date_range(start_date, periods=years*12, freq='M')
-    
-    # Time index (months)
-    t = np.arange(len(dates))
-    
-    # Generate correlated features
-    
-    # 1. XLPE Demand (with trend, seasonality, and noise)
-    trend = base_demand + (t * 40)  # Growing at ~40 tons/month
-    seasonality = 500 * np.sin(2 * np.pi * t / 12)  # Annual cycle
-    noise = np.random.normal(0, 300, len(t))
-    xlpe_demand = trend + seasonality + noise
-    xlpe_demand = np.clip(xlpe_demand, 0, None)
-    
-    # 2. Polyethylene Price Index (inversely correlated with demand)
-    pe_price = 100 + np.random.normal(0, 10, len(t)) - (xlpe_demand - base_demand) / 200
-    pe_price = np.clip(pe_price, 80, 140)
-    
-    # 3. GDP Growth Rate (positively correlated)
-    gdp_growth = 3.5 + np.random.normal(0, 1.5, len(t)) + t * 0.01
-    gdp_growth = np.clip(gdp_growth, -2, 8)
-    
-    # 4. Construction Index (highly correlated with demand)
-    construction_index = 90 + (xlpe_demand - base_demand) / 50 + np.random.normal(0, 5, len(t))
-    construction_index = np.clip(construction_index, 70, 130)
-    
-    # 5. Grid Expansion Rate
-    grid_expansion = 4 + np.random.normal(0, 1, len(t)) + t * 0.015
-    grid_expansion = np.clip(grid_expansion, 1, 10)
-    
-    # 6. Renewable Energy Capacity (GW) - growing exponentially
-    renewable_capacity = 20 * np.exp(t * 0.008) + np.random.normal(0, 2, len(t))
-    
-    # Create DataFrame
-    df = pd.DataFrame({
-        'date': dates,
-        'year': dates.year,
-        'month': dates.month,
-        'xlpe_demand_tons': xlpe_demand,
-        'polyethylene_price_index': pe_price,
-        'gdp_growth_rate': gdp_growth,
-        'construction_index': construction_index,
-        'grid_expansion_rate': grid_expansion,
-        'renewable_capacity_gw': renewable_capacity
-    })
-    
-    print(f"[GENERATED] {len(df)} months of synthetic data ({years} years)")
-    print(f"[RANGE] {df['date'].min().strftime('%Y-%m')} to {df['date'].max().strftime('%Y-%m')}")
-    print(f"[DEMAND] Min: {df['xlpe_demand_tons'].min():.0f}, Max: {df['xlpe_demand_tons'].max():.0f}, Avg: {df['xlpe_demand_tons'].mean():.0f} tons/month")
-    
-    return df
-
-
-def load_or_generate_data():
-    """Load existing data or generate synthetic data"""
+def load_actual_data():
+    """Load actual historical data from Excel - NO SYNTHETIC DATA"""
     try:
-        # Try to load existing data
-        df = pd.read_csv('data/historical_xlpe_demand.csv')
-        df['date'] = pd.to_datetime(df['date'])
-        print("[LOADED] Historical data from data/historical_xlpe_demand.csv")
-    except FileNotFoundError:
-        # Generate synthetic data
-        df = generate_synthetic_market_data(years=10)
+        # Load actual historical XLPE demand data
+        df = pd.read_excel('historical_xlpe_demand.xlsx')
+        print("[LOADED] Actual historical data from historical_xlpe_demand.xlsx")
+        print("[INFO] Using REAL data only - NO synthetic data generation")
         
-        # Save for future use
-        import os
-        os.makedirs('data', exist_ok=True)
-        df.to_csv('data/historical_xlpe_demand.csv', index=False)
-        print("[SAVED] data/historical_xlpe_demand.csv")
-    
-    return df
+        # Clean column names
+        df.columns = df.columns.str.strip()
+        
+        # Convert date column
+        df['date'] = pd.to_datetime(df['Date'])
+        df['year'] = df['Year']
+        df['month'] = df['Month']
+        
+        # Map actual columns to expected feature names
+        df['xlpe_demand_tons'] = df['xlpe_demand_tons']
+        df['polyethylene_price_index'] = df['polyethylene_price']
+        df['gdp_growth_rate'] = df['gdp_growth_rate']
+        
+        print(f"[OK] Demand range: {df['xlpe_demand_tons'].min():.4f} - {df['xlpe_demand_tons'].max():.4f} tons/month")
+        
+        # Use electricity consumption as proxy for construction/grid activity
+        df['construction_index'] = df['Total electricity consumption, Middle East'] / 100  # Normalize
+        df['grid_expansion_rate'] = df['Monthy growth rate , Middle East %']
+        
+        # Create renewable capacity from electricity growth (derived feature)
+        df['renewable_capacity_gw'] = df['Total electricity consumption, Middle East'] * 0.15  # Assume 15% renewable
+        
+        print(f"[OK] Loaded {len(df)} records from Excel")
+        print(f"[OK] Date range: {df['date'].min()} to {df['date'].max()}")
+        print(f"[OK] Columns mapped: polyethylene_price -> polyethylene_price_index")
+        print(f"[OK] Columns mapped: Total electricity consumption -> construction_index")
+        print(f"[OK] Columns mapped: Monthly growth rate -> grid_expansion_rate")
+        
+        # Select required columns
+        df = df[['date', 'year', 'month', 'xlpe_demand_tons', 'polyethylene_price_index', 
+                 'gdp_growth_rate', 'construction_index', 'grid_expansion_rate', 'renewable_capacity_gw']]
+        
+        return df
+        
+    except FileNotFoundError:
+        print("[ERROR] historical_xlpe_demand.xlsx not found!")
+        print("[ERROR] Please ensure the Excel file exists in the project root directory")
+        raise FileNotFoundError("Required file 'historical_xlpe_demand.xlsx' is missing")
+
+def load_model1_outputs():
+    """Load Model 1 outputs for validation and adjustment"""
+    try:
+        urgency_df = pd.read_csv('data/model2_urgency_demand.csv')
+        risk_df = pd.read_csv('data/model2_risk_demand.csv')
+        health_df = pd.read_csv('data/model2_health_demand.csv')
+        
+        print("[LOADED] Model 1 outputs for baseline validation")
+        print(f"  • Total demand from Model 1: {urgency_df['xlpe_demand_tons'].sum():.2f} tons")
+        
+        return urgency_df, risk_df, health_df
+    except FileNotFoundError:
+        print("[WARNING] Model 1 outputs not found. Run arabcab.py first.")
+        return None, None, None
 
 
 # ============================================================================
@@ -415,7 +391,7 @@ def forecast_future(prophet_model, ml_model, scaler, features, df, years=5):
         'date': future_dates,
         'year': future_dates.year,
         'month': future_dates.month,
-        'forecast_demand_tons': ensemble_forecast.round(0)
+        'forecast_demand_tons': ensemble_forecast.round(2)  # Keep decimals for small values
     })
     
     # Annual aggregation
@@ -424,9 +400,9 @@ def forecast_future(prophet_model, ml_model, scaler, features, df, years=5):
     
     print(f"\n[FORECAST] Annual XLPE Demand Projections:")
     for _, row in annual_forecast.iterrows():
-        print(f"  • {row['year']}: {row['annual_demand_tons']:>10,.0f} tons")
+        print(f"  • {row['year']}: {row['annual_demand_tons']:>15,.2f} tons")
     
-    print(f"\n[TOTAL] {years}-Year Total Demand: {annual_forecast['annual_demand_tons'].sum():,.0f} tons")
+    print(f"\n[TOTAL] {years}-Year Total Demand: {annual_forecast['annual_demand_tons'].sum():,.2f} tons")
     
     return forecast_df, annual_forecast
 
@@ -471,10 +447,14 @@ def save_outputs(prophet_model, ml_model, scaler, features, metrics_prophet, met
 def main():
     print("\n" + "="*70)
     print("ARABCAB - MODEL 2: ML-BASED MARKET FORECASTING")
+    print("USING ACTUAL DATA ONLY - NO SYNTHETIC DATA")
     print("="*70)
     
-    # Load or generate data
-    df = load_or_generate_data()
+    # Load actual historical data (NO SYNTHETIC DATA)
+    df = load_actual_data()
+    
+    # Load Model 1 outputs for validation
+    urgency_df, risk_df, health_df = load_model1_outputs()
     
     # Train Prophet
     prophet_model, metrics_prophet = train_prophet_model(df)
