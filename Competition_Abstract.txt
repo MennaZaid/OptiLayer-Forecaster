@@ -1,0 +1,15 @@
+ARABCAB Competition Abstract
+University: [Your University Name]
+Team Members: [Your Team Member Names]
+
+Project Title: AI-Driven XLPE Demand Forecasting and Inventory Optimization for Cable Manufacturing
+
+Abstract (250 words):
+
+The cable manufacturing industry faces significant challenges in forecasting demand for critical polymer materials, particularly Cross-Linked Polyethylene (XLPE), which serves as essential insulation in power cables. Fluctuating infrastructure demands, renewable energy expansion, and volatile raw material prices create substantial inventory management complexities. This project proposes an AI-based demand forecasting system specifically designed to predict XLPE consumption patterns and optimize inventory levels.
+
+Our solution leverages machine learning algorithms including Linear Regression, K-Nearest Neighbors, Decision Trees, and Random Forest models to analyze historical XLPE demand data alongside key economic indicators. The system incorporates multiple predictive variables: polyethylene prices, inflation indices, GDP growth rates, regional electricity consumption patterns, and monthly market growth rates across the Middle East region. By integrating these diverse data sources, our models capture complex relationships between macroeconomic factors and material demand.
+
+The forecasting engine generates short- and medium-term demand predictions with quantified accuracy metrics (MAE, R² scores, and percentage accuracy). These predictions feed directly into an inventory optimization module that recommends optimal stock levels, helping manufacturers avoid costly overstocking while preventing production delays from material shortages.
+
+Our prototype includes an interactive dashboard providing real-time visualizations of demand trends, forecasting outputs, and inventory recommendations. This enables decision-makers to make data-driven procurement decisions aligned with actual market conditions. The solution is designed for practical implementation, offering cable manufacturers in Egypt, Bahrain, and UAE a scalable tool to enhance operational efficiency, reduce inventory costs, and improve supply chain resilience in an increasingly dynamic global market.

@@ -1,0 +1,5 @@
+Model,Accuracy (%),MAE (million tons),R² Score,MAPE (%),Train MAE,Train R²
+Linear Regression,94.93,0.013431,0.7127,5.07,0.012125,0.7789
+KNN,97.11,0.007636,0.8671,2.89,0.005389,0.9455
+Decision Tree,96.86,0.008291,0.8235,3.14,0.0,1.0
+Random Forest,97.27,0.007218,0.8773,2.73,0.002318,0.9895

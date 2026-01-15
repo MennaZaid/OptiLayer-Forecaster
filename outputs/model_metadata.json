@@ -1,0 +1,15 @@
+{
+    "timestamp": "2026-01-15 03:01:29",
+    "best_model": "Random Forest",
+    "best_accuracy": 97.27329212567568,
+    "features": [
+        "polyethylene_price",
+        "Average Inflation percent index of Dollar",
+        "gdp_growth_rate",
+        "Total electricity consumption, Middle East",
+        "Monthy growth rate , Middle East %"
+    ],
+    "target": "xlpe_demand_Million_tons",
+    "train_size": 249,
+    "test_size": 63
+}
