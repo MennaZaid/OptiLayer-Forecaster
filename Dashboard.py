@@ -122,7 +122,7 @@ if page == "Overview":
     with col2:
         st.metric(
             label="Model Accuracy",
-            value=f"{data['metadata']['best_accuracy']:.2f}%",
+            value=f"{data['metadata']['best_forecast_accuracy']:.2f}%",
             delta="High Performance"
         )
     
