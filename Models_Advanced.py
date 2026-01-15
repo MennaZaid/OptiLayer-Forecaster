@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import cross_val_score, GridSearchCV, TimeSeriesSplit
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.tree import DecisionTreeRegressor
@@ -22,9 +22,10 @@ warnings.filterwarnings('ignore')
 os.makedirs('outputs', exist_ok=True)
 
 print("="*80)
-print("XLPE DEMAND FORECASTING - ADVANCED AI-BASED MODEL EVALUATION")
-print("INNOVATION: Scikit-learn Pipelines + Multi-Algorithm Ensemble")
-print("INNOVATION: Hyperparameter Optimization with GridSearchCV")
+print("XLPE DEMAND FORECASTING - TIME-SERIES FORECASTING MODEL")
+print("INNOVATION: Scikit-learn Pipelines + Time-Series Cross-Validation")
+print("INNOVATION: Lag-based Features + TimeSeriesSplit")
+print("INNOVATION: Temporal Order Preserved (NO random shuffling)")
 print("="*80)
 
 # Load data
@@ -39,8 +40,22 @@ print(f"Date range: {df['Date'].min()} to {df['Date'].max()}")
 
 # Data preprocessing
 df_clean = df.drop(columns=['Date', 'Year', 'Month']).dropna()
+
+# CRITICAL FORECASTING INNOVATION: Add lag-based features
+print(f"\nAdding time-series lag features...")
+df_clean['lag_1'] = df_clean['xlpe_demand_Million_tons'].shift(1)
+df_clean['lag_3'] = df_clean['xlpe_demand_Million_tons'].shift(3)
+df_clean['lag_12'] = df_clean['xlpe_demand_Million_tons'].shift(12)  # Seasonal pattern
+df_clean['rolling_mean_3'] = df_clean['xlpe_demand_Million_tons'].rolling(3).mean()
+
+# Drop NaN values created by lag features
+df_clean = df_clean.dropna()
+
 X = df_clean.drop(columns=['xlpe_demand_Million_tons'])
 y = df_clean['xlpe_demand_Million_tons']
+
+print(f"Features after adding lag variables: {len(X.columns)}")
+print(f"Lag features added: lag_1, lag_3, lag_12 (seasonal), rolling_mean_3")
 
 # Feature statistics
 print(f"\n{'='*80}")
@@ -53,11 +68,18 @@ for i, col in enumerate(X.columns, 1):
     print(f"  {i}. {col}")
     print(f"     Mean: {mean_val:.6f}, Std Dev: {std_val:.6f}")
 
-# Train-test split (NO manual scaling - pipelines will handle this!)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-print(f"\nTraining set: {len(X_train)} samples")
-print(f"Testing set: {len(X_test)} samples")
-print(f"Train-Test split: 80-20 (stratified by temporal sequence)")
+# MANDATORY: Time-series split (NO random shuffling!)
+split_idx = int(len(X) * 0.8)
+X_train = X.iloc[:split_idx]
+X_test = X.iloc[split_idx:]
+y_train = y.iloc[:split_idx]
+y_test = y.iloc[split_idx:]
+
+print(f"\nTraining set: {len(X_train)} samples (first 80% chronologically)")
+print(f"Testing set: {len(X_test)} samples (last 20% chronologically)")
+print(f"Time-series split: 80-20 (TEMPORAL ORDER PRESERVED - NO SHUFFLING)")
+print(f"Training period: indices 0 to {split_idx-1}")
+print(f"Testing period: indices {split_idx} to {len(X)-1}")
 
 print("\n" + "="*80)
 print("INNOVATION: Using Scikit-learn Pipelines")
@@ -97,42 +119,13 @@ models = {
         },
         "use_cv": True
     },
-    "Lasso Regression": {
-        "pipeline": Pipeline([
-            ('scaler', StandardScaler()),
-            ('model', Lasso(max_iter=10000))
-        ]),
-        "params": {
-            'model__alpha': [0.001, 0.01, 0.1]
-        },
-        "use_cv": True
-    },
-    "KNN Regressor": {
-        "pipeline": Pipeline([
-            ('scaler', StandardScaler()),  # Critical for KNN (distance-based)
-            ('model', KNeighborsRegressor())
-        ]),
-        "params": {
-            'model__n_neighbors': [3, 5, 7],
-            'model__weights': ['uniform', 'distance']
-        },
-        "use_cv": True
-    },
-    "Decision Tree": {
-        "pipeline": Pipeline([
-            ('scaler', StandardScaler()),  # Tree models don't need scaling, but keeps consistency
-            ('model', DecisionTreeRegressor(random_state=42))
-        ]),
-        "params": {
-            'model__max_depth': [5, 10, 15],
-            'model__min_samples_split': [2, 5, 10]
-        },
-        "use_cv": True
-    },
+    # REMOVED: Lasso (less effective for time-series)
+    # REMOVED: KNN (unstable for forecasting)
+    # REMOVED: Decision Tree (single trees overfit time-series)
+    
     "Random Forest": {
         "pipeline": Pipeline([
-            ('scaler', StandardScaler()),
-            ('model', RandomForestRegressor(random_state=42))
+            ('model', RandomForestRegressor(random_state=42))  # No scaling needed for trees
         ]),
         "params": {
             'model__n_estimators': [50, 100, 150],
@@ -142,8 +135,7 @@ models = {
     },
     "Gradient Boosting": {
         "pipeline": Pipeline([
-            ('scaler', StandardScaler()),
-            ('model', GradientBoostingRegressor(random_state=42))
+            ('model', GradientBoostingRegressor(random_state=42))  # No scaling needed for trees
         ]),
         "params": {
             'model__n_estimators': [50, 100],
@@ -152,17 +144,7 @@ models = {
         },
         "use_cv": True
     },
-    "Support Vector Regression": {
-        "pipeline": Pipeline([
-            ('scaler', StandardScaler()),  # Critical for SVR (sensitive to feature scales)
-            ('model', SVR())
-        ]),
-        "params": {
-            'model__C': [0.1, 1.0, 10.0],
-            'model__kernel': ['rbf', 'linear']
-        },
-        "use_cv": True
-    }
+    # REMOVED: SVR (computationally expensive, less effective for time-series)
 }
 
 # Store results
@@ -182,10 +164,11 @@ for name, model_info in models.items():
     # This prevents data leakage and gives honest performance estimates
     if model_info['params']:
         print(f"Performing Grid Search with Cross-Validation on Pipeline...")
+        tscv = TimeSeriesSplit(n_splits=5)
         grid_search = GridSearchCV(
             model_info['pipeline'],  # Entire pipeline, not just model
             model_info['params'], 
-            cv=5, 
+            cv=tscv,  # Time-series cross-validation
             scoring='r2',
             n_jobs=-1
         )
@@ -198,8 +181,9 @@ for name, model_info in models.items():
         pipeline.fit(X_train, y_train)
         # Cross-validation for models without hyperparameters
         if model_info['use_cv']:
-            cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5, scoring='r2')
-            print(f"Cross-validation R² score: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
+            tscv = TimeSeriesSplit(n_splits=5)
+            cv_scores = cross_val_score(pipeline, X_train, y_train, cv=tscv, scoring='r2')
+            print(f"Time-series CV R² score: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
     
     # Store trained pipeline (contains both scaler and model)
     trained_pipelines[name] = pipeline
@@ -214,7 +198,7 @@ for name, model_info in models.items():
     rmse = np.sqrt(mse)
     r2 = r2_score(y_test, y_pred)
     mape = np.mean(np.abs((y_test - y_pred) / y_test)) * 100
-    accuracy = 100 - mape
+    forecast_accuracy = 100 - mape  # Forecast Accuracy = 1 - MAPE
     
     # Training metrics
     train_mae = mean_absolute_error(y_train, y_train_pred)
@@ -225,7 +209,7 @@ for name, model_info in models.items():
     
     # Print results
     print(f"\n📊 Test Set Performance:")
-    print(f"  ✓ Accuracy: {accuracy:.2f}%")
+    print(f"  ✓ Forecast Accuracy (1-MAPE): {forecast_accuracy:.2f}%")
     print(f"  ✓ Mean Absolute Error (MAE): {mae:.6f} million tons")
     print(f"  ✓ Root Mean Squared Error (RMSE): {rmse:.6f} million tons")
     print(f"  ✓ R² Score: {r2:.4f}")
@@ -239,7 +223,7 @@ for name, model_info in models.items():
     # Store results
     results.append({
         'Model': name,
-        'Accuracy (%)': round(accuracy, 2),
+        'Forecast Accuracy (%)': round(forecast_accuracy, 2),  # Renamed for clarity
         'MAE (million tons)': round(mae, 6),
         'RMSE (million tons)': round(rmse, 6),
         'R² Score': round(r2, 4),
@@ -248,8 +232,8 @@ for name, model_info in models.items():
         'Overfitting': round(overfitting_score, 4)
     })
     
-    # Track best model (considering both accuracy and overfitting)
-    model_score = accuracy - (overfitting_score * 10)  # Penalize overfitting
+    # Track best model (considering both forecast accuracy and overfitting)
+    model_score = forecast_accuracy - (overfitting_score * 10)  # Penalize overfitting
     if model_score > best_accuracy:
         best_accuracy = model_score
         best_pipeline = pipeline  # Store entire pipeline
@@ -271,12 +255,13 @@ print("CREATING ADVANCED ENSEMBLE PIPELINE")
 print(f"{'='*80}")
 
 # Select top 3 models for ensemble
-results_sorted = sorted(results, key=lambda x: x['Accuracy (%)'], reverse=True)
+results_sorted = sorted(results, key=lambda x: x['Forecast Accuracy (%)'], reverse=True)
 top_3_models = [r['Model'] for r in results_sorted[:3]]
 print(f"Top 3 models for ensemble: {', '.join(top_3_models)}")
 
 # EXPLANATION: Ensemble of pipelines
-# Each pipeline in the ensemble handles its own scaling independently
+# NOTE: VotingRegressor uses pre-trained pipelines;
+# each estimator applies its own preprocessing independently (no double-scaling).
 ensemble_estimators = [(name, trained_pipelines[name]) for name in top_3_models]
 ensemble_pipeline = VotingRegressor(estimators=ensemble_estimators)
 ensemble_pipeline.fit(X_train, y_train)  # Each sub-pipeline scales data independently
@@ -286,17 +271,17 @@ y_pred_ensemble = ensemble_pipeline.predict(X_test)
 mae_ensemble = mean_absolute_error(y_test, y_pred_ensemble)
 r2_ensemble = r2_score(y_test, y_pred_ensemble)
 mape_ensemble = np.mean(np.abs((y_test - y_pred_ensemble) / y_test)) * 100
-accuracy_ensemble = 100 - mape_ensemble
+forecast_accuracy_ensemble = 100 - mape_ensemble
 
 print(f"\n🏆 Ensemble Pipeline Performance:")
-print(f"  ✓ Accuracy: {accuracy_ensemble:.2f}%")
+print(f"  ✓ Forecast Accuracy (1-MAPE): {forecast_accuracy_ensemble:.2f}%")
 print(f"  ✓ MAE: {mae_ensemble:.6f} million tons")
 print(f"  ✓ R² Score: {r2_ensemble:.4f}")
 
 # Add ensemble to results
 results.append({
     'Model': 'Ensemble (Top 3)',
-    'Accuracy (%)': round(accuracy_ensemble, 2),
+    'Forecast Accuracy (%)': round(forecast_accuracy_ensemble, 2),
     'MAE (million tons)': round(mae_ensemble, 6),
     'RMSE (million tons)': round(np.sqrt(mean_squared_error(y_test, y_pred_ensemble)), 6),
     'R² Score': round(r2_ensemble, 4),
@@ -306,23 +291,23 @@ results.append({
 })
 
 # Update best model if ensemble is better
-if accuracy_ensemble > best_accuracy:
+if forecast_accuracy_ensemble > best_accuracy:
     best_pipeline = ensemble_pipeline
     best_model_name = 'Ensemble (Top 3)'
-    best_accuracy = accuracy_ensemble
+    best_accuracy = forecast_accuracy_ensemble
 
 # Save results summary
 results_df = pd.DataFrame(results)
-results_df = results_df.sort_values('Accuracy (%)', ascending=False)
+results_df = results_df.sort_values('Forecast Accuracy (%)', ascending=False)
 results_df.to_csv('outputs/model_comparison_results.csv', index=False)
 
 print("\n" + "="*80)
-print("FINAL RESULTS SUMMARY (Ranked by Accuracy)")
+print("FINAL RESULTS SUMMARY (Ranked by Forecast Accuracy)")
 print("="*80)
 print(results_df.to_string(index=False))
 
 print(f"\n{'='*80}")
-print(f"🏆 BEST PIPELINE: {best_model_name} with {results_df[results_df['Model'] == best_model_name]['Accuracy (%)'].values[0]:.2f}% Accuracy")
+print(f"🏆 BEST PIPELINE: {best_model_name} with {results_df[results_df['Model'] == best_model_name]['Forecast Accuracy (%)'].values[0]:.2f}% Forecast Accuracy")
 print(f"{'='*80}")
 
 # Save best pipeline (contains both scaler and model!)
@@ -336,7 +321,7 @@ print("  NO manual scaling needed - pipeline handles everything!")
 metadata = {
     'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     'best_model': best_model_name,
-    'best_accuracy': float(results_df[results_df['Model'] == best_model_name]['Accuracy (%)'].values[0]),
+    'best_forecast_accuracy': float(results_df[results_df['Model'] == best_model_name]['Forecast Accuracy (%)'].values[0]),
     'best_r2': float(results_df[results_df['Model'] == best_model_name]['R² Score'].values[0]),
     'features': list(X.columns),
     'target': 'xlpe_demand_Million_tons',
@@ -363,17 +348,17 @@ plt.rcParams['figure.facecolor'] = 'white'
 # 1. Comprehensive Model Comparison
 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 
-# 1a. Accuracy Comparison
+# 1a. Forecast Accuracy Comparison
 ax = axes[0, 0]
 colors = ['#2ecc71' if r['Model'] == best_model_name else '#3498db' for r in results]
-bars = ax.barh(range(len(results_df)), results_df['Accuracy (%)'], color=colors)
+bars = ax.barh(range(len(results_df)), results_df['Forecast Accuracy (%)'], color=colors)
 ax.set_yticks(range(len(results_df)))
 ax.set_yticklabels(results_df['Model'])
-ax.set_xlabel('Accuracy (%)', fontsize=12, fontweight='bold')
-ax.set_title('Model Accuracy Comparison', fontsize=14, fontweight='bold')
+ax.set_xlabel('Forecast Accuracy (%) = 1 - MAPE', fontsize=12, fontweight='bold')
+ax.set_title('Model Forecast Accuracy Comparison', fontsize=14, fontweight='bold')
 ax.set_xlim(0, 100)
 for i, (idx, row) in enumerate(results_df.iterrows()):
-    ax.text(row['Accuracy (%)'] + 1, i, f"{row['Accuracy (%)']:.2f}%", va='center', fontweight='bold')
+    ax.text(row['Forecast Accuracy (%)'] + 1, i, f"{row['Forecast Accuracy (%)']:.2f}%", va='center', fontweight='bold')
 
 # 1b. R² Score Comparison
 ax = axes[0, 1]
@@ -482,8 +467,9 @@ if best_model_name != 'Ensemble (Top 3)':
     from sklearn.model_selection import learning_curve
     
     print("Generating learning curves (this may take a moment)...")
+    tscv = TimeSeriesSplit(n_splits=5)
     train_sizes, train_scores, val_scores = learning_curve(
-        best_pipeline, X_train, y_train, cv=5, n_jobs=-1,
+        best_pipeline, X_train, y_train, cv=tscv, n_jobs=-1,
         train_sizes=np.linspace(0.1, 1.0, 10), scoring='r2'
     )
     
@@ -530,7 +516,7 @@ print(f"  ✓ Ensemble modeling for improved accuracy")
 print(f"  ✓ Single pipeline.pkl file contains entire workflow")
 print(f"  ✓ Comprehensive error analysis and diagnostics")
 print(f"\n🏆 Best Performance: {best_model_name}")
-print(f"  ✓ Accuracy: {results_df[results_df['Model'] == best_model_name]['Accuracy (%)'].values[0]:.2f}%")
+print(f"  ✓ Forecast Accuracy (1-MAPE): {results_df[results_df['Model'] == best_model_name]['Forecast Accuracy (%)'].values[0]:.2f}%")
 print(f"  ✓ R² Score: {results_df[results_df['Model'] == best_model_name]['R² Score'].values[0]:.4f}")
 print(f"  ✓ MAE: {results_df[results_df['Model'] == best_model_name]['MAE (million tons)'].values[0]:.6f} million tons")
 

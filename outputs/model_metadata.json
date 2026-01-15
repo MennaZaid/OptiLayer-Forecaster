@@ -1,23 +1,27 @@
 {
-    "timestamp": "2026-01-15 03:27:05",
+    "timestamp": "2026-01-15 04:06:25",
     "best_model": "Ensemble (Top 3)",
-    "best_accuracy": 97.25,
-    "best_r2": 0.8911,
+    "best_forecast_accuracy": 98.75,
+    "best_r2": 0.7969,
     "features": [
         "polyethylene_price",
         "Average Inflation percent index of Dollar",
         "gdp_growth_rate",
         "Total electricity consumption, Middle East",
-        "Monthy growth rate , Middle East %"
+        "Monthy growth rate , Middle East %",
+        "lag_1",
+        "lag_3",
+        "lag_12",
+        "rolling_mean_3"
     ],
     "target": "xlpe_demand_Million_tons",
-    "train_size": 249,
-    "test_size": 63,
-    "total_models_evaluated": 9,
+    "train_size": 240,
+    "test_size": 60,
+    "total_models_evaluated": 5,
     "ensemble_members": [
+        "Linear Regression",
         "Random Forest",
-        "Gradient Boosting",
-        "KNN Regressor"
+        "Gradient Boosting"
     ],
     "preprocessing": "StandardScaler (inside pipeline)",
     "innovation": "Scikit-learn Pipelines for production-ready deployment"
