@@ -9,6 +9,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, VotingRegressor
 from sklearn.svm import SVR
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline  # INNOVATION: Professional ML pipelines
 from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
 import pickle
 import json
@@ -22,7 +23,8 @@ os.makedirs('outputs', exist_ok=True)
 
 print("="*80)
 print("XLPE DEMAND FORECASTING - ADVANCED AI-BASED MODEL EVALUATION")
-print("INNOVATION: Multi-Algorithm Ensemble with Hyperparameter Optimization")
+print("INNOVATION: Scikit-learn Pipelines + Multi-Algorithm Ensemble")
+print("INNOVATION: Hyperparameter Optimization with GridSearchCV")
 print("="*80)
 
 # Load data
@@ -51,110 +53,160 @@ for i, col in enumerate(X.columns, 1):
     print(f"  {i}. {col}")
     print(f"     Mean: {mean_val:.6f}, Std Dev: {std_val:.6f}")
 
-# Feature scaling (important for some models)
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-X_scaled_df = pd.DataFrame(X_scaled, columns=X.columns)
-
-# Save scaler
-with open('outputs/feature_scaler.pkl', 'wb') as f:
-    pickle.dump(scaler, f)
-
-# Train-test split
-X_train, X_test, y_train, y_test = train_test_split(X_scaled_df, y, test_size=0.2, random_state=42)
+# Train-test split (NO manual scaling - pipelines will handle this!)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 print(f"\nTraining set: {len(X_train)} samples")
 print(f"Testing set: {len(X_test)} samples")
 print(f"Train-Test split: 80-20 (stratified by temporal sequence)")
 
+print("\n" + "="*80)
+print("INNOVATION: Using Scikit-learn Pipelines")
+print("="*80)
+print("WHY PIPELINES?")
+print("  ✓ Prevents data leakage (scaler fits only on training data)")
+print("  ✓ Ensures consistent preprocessing in production")
+print("  ✓ Cleaner, more maintainable code")
+print("  ✓ Industry best practice for ML deployment")
+print("  ✓ Single object contains entire workflow (scale + train + predict)")
+
 # INNOVATION: Advanced models with hyperparameter tuning
 print("\n" + "="*80)
 print("ADVANCED MODEL TRAINING & HYPERPARAMETER OPTIMIZATION")
+print("Using Pipelines: StandardScaler → Model")
 print("="*80)
 
-# Define models with hyperparameter tuning
+# Define models with pipelines and hyperparameter tuning
+# EXPLANATION: Each model is wrapped in a Pipeline with StandardScaler
+# GridSearchCV will tune hyperparameters while pipeline prevents data leakage
 models = {
     "Linear Regression": {
-        "model": LinearRegression(),
-        "params": {},
+        "pipeline": Pipeline([
+            ('scaler', StandardScaler()),
+            ('model', LinearRegression())
+        ]),
+        "params": {},  # No hyperparameters to tune
         "use_cv": True
     },
     "Ridge Regression": {
-        "model": Ridge(),
-        "params": {'alpha': [0.1, 1.0, 10.0]},
+        "pipeline": Pipeline([
+            ('scaler', StandardScaler()),
+            ('model', Ridge())
+        ]),
+        "params": {
+            'model__alpha': [0.1, 1.0, 10.0]  # Note: 'model__' prefix for pipeline params
+        },
         "use_cv": True
     },
     "Lasso Regression": {
-        "model": Lasso(),
-        "params": {'alpha': [0.001, 0.01, 0.1]},
+        "pipeline": Pipeline([
+            ('scaler', StandardScaler()),
+            ('model', Lasso(max_iter=10000))
+        ]),
+        "params": {
+            'model__alpha': [0.001, 0.01, 0.1]
+        },
         "use_cv": True
     },
     "KNN Regressor": {
-        "model": KNeighborsRegressor(),
-        "params": {'n_neighbors': [3, 5, 7], 'weights': ['uniform', 'distance']},
+        "pipeline": Pipeline([
+            ('scaler', StandardScaler()),  # Critical for KNN (distance-based)
+            ('model', KNeighborsRegressor())
+        ]),
+        "params": {
+            'model__n_neighbors': [3, 5, 7],
+            'model__weights': ['uniform', 'distance']
+        },
         "use_cv": True
     },
     "Decision Tree": {
-        "model": DecisionTreeRegressor(random_state=42),
-        "params": {'max_depth': [5, 10, 15], 'min_samples_split': [2, 5, 10]},
+        "pipeline": Pipeline([
+            ('scaler', StandardScaler()),  # Tree models don't need scaling, but keeps consistency
+            ('model', DecisionTreeRegressor(random_state=42))
+        ]),
+        "params": {
+            'model__max_depth': [5, 10, 15],
+            'model__min_samples_split': [2, 5, 10]
+        },
         "use_cv": True
     },
     "Random Forest": {
-        "model": RandomForestRegressor(random_state=42),
-        "params": {'n_estimators': [50, 100, 150], 'max_depth': [10, 15, 20]},
+        "pipeline": Pipeline([
+            ('scaler', StandardScaler()),
+            ('model', RandomForestRegressor(random_state=42))
+        ]),
+        "params": {
+            'model__n_estimators': [50, 100, 150],
+            'model__max_depth': [10, 15, 20]
+        },
         "use_cv": True
     },
     "Gradient Boosting": {
-        "model": GradientBoostingRegressor(random_state=42),
-        "params": {'n_estimators': [50, 100], 'learning_rate': [0.01, 0.1], 'max_depth': [3, 5]},
+        "pipeline": Pipeline([
+            ('scaler', StandardScaler()),
+            ('model', GradientBoostingRegressor(random_state=42))
+        ]),
+        "params": {
+            'model__n_estimators': [50, 100],
+            'model__learning_rate': [0.01, 0.1],
+            'model__max_depth': [3, 5]
+        },
         "use_cv": True
     },
     "Support Vector Regression": {
-        "model": SVR(),
-        "params": {'C': [0.1, 1.0, 10.0], 'kernel': ['rbf', 'linear']},
+        "pipeline": Pipeline([
+            ('scaler', StandardScaler()),  # Critical for SVR (sensitive to feature scales)
+            ('model', SVR())
+        ]),
+        "params": {
+            'model__C': [0.1, 1.0, 10.0],
+            'model__kernel': ['rbf', 'linear']
+        },
         "use_cv": True
     }
 }
 
 # Store results
 results = []
-trained_models = {}
-best_model = None
+trained_pipelines = {}  # Store complete pipelines, not just models
+best_pipeline = None
 best_accuracy = 0
 best_model_name = ""
 
 for name, model_info in models.items():
     print(f"\n{'='*80}")
-    print(f"Training: {name}")
+    print(f"Training Pipeline: {name}")
     print(f"{'='*80}")
     
-    # Hyperparameter tuning with GridSearchCV
+    # Hyperparameter tuning with GridSearchCV on ENTIRE PIPELINE
+    # EXPLANATION: GridSearchCV fits the scaler on each CV fold separately
+    # This prevents data leakage and gives honest performance estimates
     if model_info['params']:
-        print(f"Performing Grid Search with Cross-Validation...")
+        print(f"Performing Grid Search with Cross-Validation on Pipeline...")
         grid_search = GridSearchCV(
-            model_info['model'], 
+            model_info['pipeline'],  # Entire pipeline, not just model
             model_info['params'], 
             cv=5, 
             scoring='r2',
             n_jobs=-1
         )
-        grid_search.fit(X_train, y_train)
-        model = grid_search.best_estimator_
+        grid_search.fit(X_train, y_train)  # Pipeline handles scaling automatically
+        pipeline = grid_search.best_estimator_
         print(f"Best parameters: {grid_search.best_params_}")
         print(f"Cross-validation R² score: {grid_search.best_score_:.4f}")
     else:
-        model = model_info['model']
-        model.fit(X_train, y_train)
+        pipeline = model_info['pipeline']
+        pipeline.fit(X_train, y_train)
         # Cross-validation for models without hyperparameters
         if model_info['use_cv']:
-            cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='r2')
+            cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5, scoring='r2')
             print(f"Cross-validation R² score: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
     
-    # Store trained model
-    trained_models[name] = model
+    # Store trained pipeline (contains both scaler and model)
+    trained_pipelines[name] = pipeline
     
-    # Predictions
-    y_pred = model.predict(X_test)
-    y_train_pred = model.predict(X_train)
+    # Predictions (pipeline automatically scales X_test)
+    y_pred = pipeline.predict(X_test)
+    y_train_pred = pipeline.predict(X_train)
     
     # Calculate metrics
     mae = mean_absolute_error(y_test, y_pred)
@@ -200,7 +252,7 @@ for name, model_info in models.items():
     model_score = accuracy - (overfitting_score * 10)  # Penalize overfitting
     if model_score > best_accuracy:
         best_accuracy = model_score
-        best_model = model
+        best_pipeline = pipeline  # Store entire pipeline
         best_model_name = name
     
     # Save predictions
@@ -215,7 +267,7 @@ for name, model_info in models.items():
 
 # INNOVATION: Create Ensemble Model (Voting Regressor)
 print(f"\n{'='*80}")
-print("CREATING ADVANCED ENSEMBLE MODEL")
+print("CREATING ADVANCED ENSEMBLE PIPELINE")
 print(f"{'='*80}")
 
 # Select top 3 models for ensemble
@@ -223,18 +275,20 @@ results_sorted = sorted(results, key=lambda x: x['Accuracy (%)'], reverse=True)
 top_3_models = [r['Model'] for r in results_sorted[:3]]
 print(f"Top 3 models for ensemble: {', '.join(top_3_models)}")
 
-ensemble_models = [(name, trained_models[name]) for name in top_3_models]
-ensemble = VotingRegressor(estimators=ensemble_models)
-ensemble.fit(X_train, y_train)
+# EXPLANATION: Ensemble of pipelines
+# Each pipeline in the ensemble handles its own scaling independently
+ensemble_estimators = [(name, trained_pipelines[name]) for name in top_3_models]
+ensemble_pipeline = VotingRegressor(estimators=ensemble_estimators)
+ensemble_pipeline.fit(X_train, y_train)  # Each sub-pipeline scales data independently
 
 # Evaluate ensemble
-y_pred_ensemble = ensemble.predict(X_test)
+y_pred_ensemble = ensemble_pipeline.predict(X_test)
 mae_ensemble = mean_absolute_error(y_test, y_pred_ensemble)
 r2_ensemble = r2_score(y_test, y_pred_ensemble)
 mape_ensemble = np.mean(np.abs((y_test - y_pred_ensemble) / y_test)) * 100
 accuracy_ensemble = 100 - mape_ensemble
 
-print(f"\n🏆 Ensemble Model Performance:")
+print(f"\n🏆 Ensemble Pipeline Performance:")
 print(f"  ✓ Accuracy: {accuracy_ensemble:.2f}%")
 print(f"  ✓ MAE: {mae_ensemble:.6f} million tons")
 print(f"  ✓ R² Score: {r2_ensemble:.4f}")
@@ -247,13 +301,13 @@ results.append({
     'RMSE (million tons)': round(np.sqrt(mean_squared_error(y_test, y_pred_ensemble)), 6),
     'R² Score': round(r2_ensemble, 4),
     'MAPE (%)': round(mape_ensemble, 2),
-    'Train R²': round(r2_score(y_train, ensemble.predict(X_train)), 4),
-    'Overfitting': round(abs(r2_score(y_train, ensemble.predict(X_train)) - r2_ensemble), 4)
+    'Train R²': round(r2_score(y_train, ensemble_pipeline.predict(X_train)), 4),
+    'Overfitting': round(abs(r2_score(y_train, ensemble_pipeline.predict(X_train)) - r2_ensemble), 4)
 })
 
 # Update best model if ensemble is better
 if accuracy_ensemble > best_accuracy:
-    best_model = ensemble
+    best_pipeline = ensemble_pipeline
     best_model_name = 'Ensemble (Top 3)'
     best_accuracy = accuracy_ensemble
 
@@ -268,13 +322,15 @@ print("="*80)
 print(results_df.to_string(index=False))
 
 print(f"\n{'='*80}")
-print(f"🏆 BEST MODEL: {best_model_name} with {results_df[results_df['Model'] == best_model_name]['Accuracy (%)'].values[0]:.2f}% Accuracy")
+print(f"🏆 BEST PIPELINE: {best_model_name} with {results_df[results_df['Model'] == best_model_name]['Accuracy (%)'].values[0]:.2f}% Accuracy")
 print(f"{'='*80}")
 
-# Save best model
-with open('outputs/best_model.pkl', 'wb') as f:
-    pickle.dump(best_model, f)
-print(f"\n✓ Best model saved to: outputs/best_model.pkl")
+# Save best pipeline (contains both scaler and model!)
+with open('outputs/best_pipeline.pkl', 'wb') as f:
+    pickle.dump(best_pipeline, f)
+print(f"\n✓ Best pipeline saved to: outputs/best_pipeline.pkl")
+print("  DEPLOYMENT: Load this single file and call pipeline.predict(new_data)")
+print("  NO manual scaling needed - pipeline handles everything!")
 
 # Save metadata
 metadata = {
@@ -288,7 +344,8 @@ metadata = {
     'test_size': len(X_test),
     'total_models_evaluated': len(models) + 1,  # +1 for ensemble
     'ensemble_members': top_3_models if best_model_name == 'Ensemble (Top 3)' else [],
-    'feature_scaling': 'StandardScaler'
+    'preprocessing': 'StandardScaler (inside pipeline)',
+    'innovation': 'Scikit-learn Pipelines for production-ready deployment'
 }
 
 with open('outputs/model_metadata.json', 'w') as f:
@@ -360,7 +417,7 @@ plt.savefig('outputs/comprehensive_model_comparison.png', dpi=300, bbox_inches='
 plt.close()
 
 # 2. Best Model Performance
-best_y_pred = best_model.predict(X_test)
+best_y_pred = best_pipeline.predict(X_test)
 
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -399,10 +456,13 @@ plt.savefig('outputs/best_model_analysis.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 # 3. Feature Importance (if applicable)
-if hasattr(best_model, 'feature_importances_'):
+if best_model_name == 'Ensemble (Top 3)':
+    # For ensemble of pipelines, we can't easily extract feature importance
+    print("✓ Ensemble pipeline - combined predictions from top 3 models")
+elif hasattr(best_pipeline.named_steps['model'], 'feature_importances_'):
     feature_importance = pd.DataFrame({
         'Feature': X.columns,
-        'Importance': best_model.feature_importances_
+        'Importance': best_pipeline.named_steps['model'].feature_importances_
     }).sort_values('Importance', ascending=False)
     
     plt.figure(figsize=(10, 6))
@@ -416,9 +476,6 @@ if hasattr(best_model, 'feature_importances_'):
     
     feature_importance.to_csv('outputs/feature_importance.csv', index=False)
     print("✓ Feature importance analysis saved")
-elif best_model_name == 'Ensemble (Top 3)':
-    # For ensemble, try to get feature importance from member models
-    print("✓ Ensemble model - feature importance from member models")
 
 # 4. Learning Curves (for best single model, not ensemble)
 if best_model_name != 'Ensemble (Top 3)':
@@ -426,7 +483,7 @@ if best_model_name != 'Ensemble (Top 3)':
     
     print("Generating learning curves (this may take a moment)...")
     train_sizes, train_scores, val_scores = learning_curve(
-        best_model, X_train, y_train, cv=5, n_jobs=-1,
+        best_pipeline, X_train, y_train, cv=5, n_jobs=-1,
         train_sizes=np.linspace(0.1, 1.0, 10), scoring='r2'
     )
     
@@ -455,24 +512,33 @@ print("\nFiles saved to 'outputs' directory:")
 print("  ✓ model_comparison_results.csv - Detailed comparison table")
 print("  ✓ comprehensive_model_comparison.png - 4-panel comparison chart")
 print("  ✓ best_model_analysis.png - Best model performance analysis")
-print("  ✓ best_model.pkl - Trained best model")
-print("  ✓ feature_scaler.pkl - Feature scaler for predictions")
+print("  ✓ best_pipeline.pkl - COMPLETE PIPELINE (scaler + model)")
 print("  ✓ model_metadata.json - Model metadata and configuration")
 print("  ✓ Individual model prediction CSVs")
 print("  ✓ Feature importance analysis (if applicable)")
 print("  ✓ Learning curve (if applicable)")
 
 print("\n" + "="*80)
-print("✅ ADVANCED FORECASTING COMPLETE - READY FOR COMPETITION")
+print("✅ ADVANCED FORECASTING COMPLETE - PRODUCTION READY")
 print("="*80)
 print(f"\n🎯 Innovation Highlights:")
+print(f"  ✓ Scikit-learn Pipelines for production deployment")
 print(f"  ✓ {len(models)} different ML algorithms evaluated")
-print(f"  ✓ Hyperparameter optimization with GridSearchCV")
-print(f"  ✓ Cross-validation for robust performance estimation")
+print(f"  ✓ Hyperparameter optimization with GridSearchCV on pipelines")
+print(f"  ✓ Cross-validation prevents data leakage")
 print(f"  ✓ Ensemble modeling for improved accuracy")
-print(f"  ✓ Feature scaling for algorithm optimization")
+print(f"  ✓ Single pipeline.pkl file contains entire workflow")
 print(f"  ✓ Comprehensive error analysis and diagnostics")
 print(f"\n🏆 Best Performance: {best_model_name}")
 print(f"  ✓ Accuracy: {results_df[results_df['Model'] == best_model_name]['Accuracy (%)'].values[0]:.2f}%")
 print(f"  ✓ R² Score: {results_df[results_df['Model'] == best_model_name]['R² Score'].values[0]:.4f}")
 print(f"  ✓ MAE: {results_df[results_df['Model'] == best_model_name]['MAE (million tons)'].values[0]:.6f} million tons")
+
+print("\n" + "="*80)
+print("DEPLOYMENT INSTRUCTIONS")
+print("="*80)
+print("To use the trained pipeline in production:")
+print("  1. Load: pipeline = pickle.load(open('outputs/best_pipeline.pkl', 'rb'))")
+print("  2. Predict: predictions = pipeline.predict(new_data)")
+print("  3. That's it! Pipeline handles scaling automatically")
+print("="*80)
