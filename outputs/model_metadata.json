@@ -1,8 +1,8 @@
 {
-    "timestamp": "2026-01-18 00:48:38",
+    "timestamp": "2026-01-18 01:08:54",
     "best_model": "Ensemble (Top 3)",
-    "best_forecast_accuracy": 98.72,
-    "best_r2": 0.7854,
+    "best_forecast_accuracy": 98.56,
+    "best_r2": 0.7615,
     "features": [
         "polyethylene_price",
         "Average Inflation percent index of Dollar",
@@ -21,7 +21,7 @@
     "ensemble_members": [
         "Linear Regression",
         "Random Forest (Risk-Aware)",
-        "Gradient Boosting"
+        "Ridge Regression"
     ],
     "preprocessing": "StandardScaler (inside pipeline)",
     "innovation": "Scikit-learn Pipelines for production-ready deployment"

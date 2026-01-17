@@ -131,16 +131,13 @@ models = {
         "use_cv": True,
         "risk_aware": True  # Flag to enable risk-aware processing
     },
-    "Gradient Boosting": {
+    "Gradient Boosting (Risk-Aware)": {
         "pipeline": Pipeline([
-            ('model', GradientBoostingRegressor(random_state=42))  # No scaling needed for trees
+            ('model', GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42))  # Fixed params for risk analysis
         ]),
-        "params": {
-            'model__n_estimators': [50, 100],
-            'model__learning_rate': [0.01, 0.1],
-            'model__max_depth': [3, 5]
-        },
-        "use_cv": True
+        "params": {},  # No hyperparameter tuning - using fixed configuration for risk analysis
+        "use_cv": True,
+        "risk_aware": True  # Flag to enable risk-aware processing
     },
     # REMOVED: SVR (computationally expensive, less effective for time-series)
 }
@@ -186,22 +183,30 @@ for name, model_info in models.items():
     # Store trained pipeline (contains both scaler and model)
     trained_pipelines[name] = pipeline
     
-    # RISK-AWARE PROCESSING: For Random Forest, calculate uncertainty and hedging
+    # RISK-AWARE PROCESSING: For Random Forest and Gradient Boosting, calculate uncertainty and hedging
     if model_info.get('risk_aware', False):
         print(f"\n🎯 RISK-AWARE FORECASTING WITH HEDGING STRATEGY")
         print(f"{'='*80}")
         
-        # Get the actual Random Forest model from the pipeline
-        rf_model = pipeline.named_steps['model']
+        # Get the actual model from the pipeline
+        ml_model = pipeline.named_steps['model']
         
-        # Collect predictions from all trees to measure volatility
-        all_tree_preds = np.array([tree.predict(X_test.values) for tree in rf_model.estimators_])
+        # Collect predictions from all estimators to measure volatility
+        if 'Random Forest' in name:
+            # Random Forest: collect predictions from all trees
+            all_estimator_preds = np.array([tree.predict(X_test.values) for tree in ml_model.estimators_])
+        elif 'Gradient Boosting' in name:
+            # Gradient Boosting: collect staged predictions (cumulative predictions at each stage)
+            all_estimator_preds = []
+            for i, pred in enumerate(ml_model.staged_predict(X_test)):
+                all_estimator_preds.append(pred)
+            all_estimator_preds = np.array(all_estimator_preds)
         
         # Forecast (Mean)
-        y_pred = np.mean(all_tree_preds, axis=0)
+        y_pred = np.mean(all_estimator_preds, axis=0)
         
-        # Risk (Standard Deviation across trees)
-        uncertainty = np.std(all_tree_preds, axis=0)
+        # Risk (Standard Deviation across estimators)
+        uncertainty = np.std(all_estimator_preds, axis=0)
         
         # Dynamic Safety Stock (95% Confidence -> 1.96 Sigma)
         safety_stock = 1.96 * uncertainty
@@ -250,14 +255,21 @@ for name, model_info in models.items():
                 'Hedging_Factor': hedging_factors,
                 'Final_Order_Quantity': final_orders
             })
-            risk_results.to_csv('outputs/Random_Forest_Risk_Analysis.csv', index=False)
-            print(f"\n✓ Detailed risk analysis saved to: outputs/Random_Forest_Risk_Analysis.csv")
+            risk_results.to_csv(f'outputs/{name.replace(" ", "_")}_Risk_Analysis.csv', index=False)
+            print(f"\n✓ Detailed risk analysis saved to: outputs/{name.replace(' ', '_')}_Risk_Analysis.csv")
             
-            # Display sample results
-            print(f"\n📊 Risk-Aware Forecasting Results (Last 5 Records):")
-            print("="*80)
-            print(risk_results.tail().to_string(index=False))
-            print("="*80)
+            # Display sample results with better formatting
+            print(f"\n📊 {name} - Risk-Aware Forecasting Results (Last 5 Records):")
+            print("="*120)
+            
+            # Format the dataframe for better display
+            display_df = risk_results.tail().copy()
+            pd.options.display.float_format = '{:.6f}'.format
+            pd.options.display.width = 120
+            pd.options.display.max_columns = None
+            
+            print(display_df.to_string(index=False))
+            print("="*120)
         else:
             print(f"\n⚠️  Price column not found - hedging strategy skipped")
             print(f"   Using forecast + safety stock only")
@@ -422,11 +434,25 @@ if 'polyethylene_price' in X_test.columns:
     ensemble_risk_results.to_csv('outputs/Ensemble_Risk_Analysis.csv', index=False)
     print(f"\n✓ Detailed ensemble risk analysis saved to: outputs/Ensemble_Risk_Analysis.csv")
     
-    # Display sample results
-    print(f"\n📊 Ensemble Risk-Aware Forecasting Results (Last 5 Records):")
-    print("="*80)
-    print(ensemble_risk_results.tail().to_string(index=False))
-    print("="*80)
+    # Display sample results with better formatting
+    print(f"\n📊 ENSEMBLE - Risk-Aware Forecasting Results (Last 5 Records):")
+    print("="*120)
+    
+    # Format the dataframe for better display
+    display_df = ensemble_risk_results.tail().copy()
+    pd.options.display.float_format = '{:.6f}'.format
+    pd.options.display.width = 120
+    pd.options.display.max_columns = None
+    
+    print(display_df.to_string(index=False))
+    print("="*120)
+    
+    # Print summary statistics
+    print(f"\n📈 Ensemble Summary:")
+    print(f"  Average Final Order: {ensemble_final_orders.mean():.6f} million tons")
+    print(f"  Order Range: {ensemble_final_orders.min():.6f} - {ensemble_final_orders.max():.6f}")
+    print(f"  Average Safety Buffer: {ensemble_safety_stock.mean():.6f} million tons ({(ensemble_safety_stock.mean()/y_pred_ensemble.mean())*100:.2f}% of forecast)")
+    print(f"  Price-Based Adjustments: {int((ensemble_hedging_factors != 1.0).sum())} out of {len(ensemble_hedging_factors)} periods")
 else:
     print(f"\n⚠️  Price column not found - hedging strategy skipped for ensemble")
 
