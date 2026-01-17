@@ -1,8 +1,8 @@
 {
-    "timestamp": "2026-01-18 00:10:55",
+    "timestamp": "2026-01-18 00:48:38",
     "best_model": "Ensemble (Top 3)",
-    "best_forecast_accuracy": 98.73,
-    "best_r2": 0.7951,
+    "best_forecast_accuracy": 98.72,
+    "best_r2": 0.7854,
     "features": [
         "polyethylene_price",
         "Average Inflation percent index of Dollar",
