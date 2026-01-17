@@ -1,0 +1,4 @@
+# Ignore model output files and artifacts
+outputs/*.pkl
+outputs/*.csv
+outputs/*.json

@@ -8,6 +8,9 @@ import plotly.graph_objects as go
 from datetime import datetime
 import os
 
+# Import InventoryOptimizer for inventory optimization functionality
+from inventory_optimization import InventoryOptimizer
+
 # Page configuration
 st.set_page_config(
     page_title="XLPE Demand Forecasting Dashboard",
@@ -269,135 +272,48 @@ elif page == "Model Performance":
 # ====================
 # PAGE: INVENTORY OPTIMIZATION
 # ====================
-elif page == "Inventory Optimization":
-    st.header("📦 Inventory Optimization Results")
-    
-    # Key metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    inv_results = data['inventory_results']
-    
-    with col1:
-        st.metric(
-            "Safety Stock",
-            f"{inv_results['safety_stock_tons']:.2f} tons",
-            delta="Buffer inventory"
-        )
-    
-    with col2:
-        st.metric(
-            "Reorder Point",
-            f"{inv_results['reorder_point_tons']:.2f} tons",
-            delta="Trigger level"
-        )
-    
-    with col3:
-        st.metric(
-            "EOQ",
-            f"{inv_results['eoq_tons']:.2f} tons",
-            delta="Order quantity"
-        )
-    
-    with col4:
-        st.metric(
-            "Max Inventory",
-            f"{inv_results['max_inventory_tons']:.2f} tons",
-            delta="Peak level"
-        )
-    
-    st.markdown("---")
-    
-    # Cost analysis
-    st.subheader("💰 Annual Cost Analysis")
-    
-    costs = inv_results['annual_costs']
-    cost_df = pd.DataFrame({
-        'Cost Type': ['Ordering Cost', 'Holding Cost', 'Material Cost'],
-        'Amount (USD)': [costs['ordering_cost'], costs['holding_cost'], costs['material_cost']]
-    })
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        fig = px.pie(
-            cost_df,
-            values='Amount (USD)',
-            names='Cost Type',
-            title='Cost Breakdown',
-            color_discrete_sequence=px.colors.qualitative.Pastel
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.markdown("### Cost Summary")
-        st.markdown(f"""
-        - **Ordering Cost:** ${costs['ordering_cost']:,.2f}
-        - **Holding Cost:** ${costs['holding_cost']:,.2f}
-        - **Material Cost:** ${costs['material_cost']:,.2f}
-        - **Total Annual Cost:** ${costs['total_cost']:,.2f}
-        """)
-    
-    st.markdown("---")
-    
-    # 12-month simulation
-    st.subheader("📅 12-Month Inventory Simulation")
-    
-    forecast_df = data['inventory_forecast']
-    
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=forecast_df['Month'],
-        y=forecast_df['Ending_Inventory'],
-        mode='lines+markers',
-        name='Inventory Level',
-        line=dict(color='#1f77b4', width=3),
-        marker=dict(size=8)
-    ))
-    
-    fig.add_hline(
-        y=inv_results['reorder_point_million_tons'],
-        line_dash="dash",
-        line_color="red",
-        annotation_text="Reorder Point",
-        annotation_position="right"
-    )
-    
-    fig.add_hline(
-        y=inv_results['safety_stock_million_tons'],
-        line_dash="dash",
-        line_color="orange",
-        annotation_text="Safety Stock",
-        annotation_position="right"
-    )
-    
-    fig.update_layout(
-        title="Projected Inventory Levels - Next 12 Months",
-        xaxis_title="Month",
-        yaxis_title="Inventory (Million Tons)",
-        hovermode='x unified',
-        height=500
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Simulation results
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📊 Simulation Metrics")
-        sim_results = inv_results['simulation_12months']
-        st.markdown(f"""
-        - **Average Inventory:** {sim_results['avg_inventory_million_tons']:.6f} M tons
-        - **Total Orders:** {sim_results['total_orders']}
-        - **Total Stockouts:** {sim_results['total_stockouts_million_tons']:.6f} M tons
-        - **Service Level:** {sim_results['service_level_achieved']:.2f}%
-        """)
-    
-    with col2:
-        st.subheader("📋 Monthly Details")
-        st.dataframe(forecast_df, use_container_width=True, height=400)
 
+if page == "Inventory Optimization":
+    st.header("📦 Interactive Inventory Optimization Scenario Tool")
+    # User parameters
+    service_level = st.slider("Target Service Level (%)", min_value=80, max_value=99, value=95)
+    lead_time_days = st.number_input("Lead Time (days)", value=30)
+    holding_cost = st.number_input("Holding Cost Per Ton ($)", value=50)
+    ordering_cost = st.number_input("Ordering Cost Per Order ($)", value=5000)
+    stockout_cost = st.number_input("Stockout Cost Per Ton ($)", value=500)
+    material_cost = st.number_input("Material Cost Per Ton ($)", value=2000)
+
+    # Calculate avg_demand and std_demand from historical data
+    avg_demand = data['historical_data']['xlpe_demand_Million_tons'].mean()
+    std_demand = data['historical_data']['xlpe_demand_Million_tons'].std()
+
+    # Pass these into InventoryOptimizer instance
+    optimizer = InventoryOptimizer(
+        avg_demand=avg_demand,  # from your historical stats
+        std_demand=std_demand,
+        lead_time_days=lead_time_days,
+        service_level=service_level/100.0
+    )
+    optimizer.holding_cost_per_ton = holding_cost
+    optimizer.ordering_cost = ordering_cost
+    optimizer.stockout_cost_per_ton = stockout_cost
+    optimizer.material_cost_per_ton = material_cost
+
+    safety_stock = optimizer.calculate_safety_stock()
+    rop = optimizer.calculate_reorder_point()
+    eoq = optimizer.calculate_economic_order_quantity()
+    total_cost_dict = optimizer.calculate_total_inventory_cost(eoq, safety_stock)
+    total_cost = total_cost_dict['total_cost']
+
+    st.markdown(f"""
+    **Calculated Optimization Results:**
+    - Safety Stock: `{safety_stock:.2f}` tons
+    - Reorder Point: `{rop:.2f}` tons
+    - Economic Order Quantity (EOQ): `{eoq:.2f}` tons/order
+    - **Total Inventory Cost:** `${total_cost:,.2f}`
+    """)
+
+    # Optionally: plot cost curves, let user simulate more scenarios, etc.
 # ====================
 # PAGE: FORECASTING TOOL
 # ====================
