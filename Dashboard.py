@@ -82,8 +82,8 @@ def load_data():
         with open('outputs/model_metadata.json', 'r') as f:
             metadata = json.load(f)
         
-        # Best model
-        with open('outputs/best_model.pkl', 'rb') as f:
+        # Best pipeline (updated from best_model.pkl)
+        with open('outputs/best_pipeline.pkl', 'rb') as f:
             best_model = pickle.load(f)
         
         # Historical data
