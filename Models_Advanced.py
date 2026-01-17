@@ -123,15 +123,13 @@ models = {
     # REMOVED: KNN (unstable for forecasting)
     # REMOVED: Decision Tree (single trees overfit time-series)
     
-    "Random Forest": {
+    "Random Forest (Risk-Aware)": {
         "pipeline": Pipeline([
-            ('model', RandomForestRegressor(random_state=42))  # No scaling needed for trees
+            ('model', RandomForestRegressor(n_estimators=100, random_state=42))  # Fixed params for risk analysis
         ]),
-        "params": {
-            'model__n_estimators': [50, 100, 150],
-            'model__max_depth': [10, 15, 20]
-        },
-        "use_cv": True
+        "params": {},  # No hyperparameter tuning - using fixed configuration for risk analysis
+        "use_cv": True,
+        "risk_aware": True  # Flag to enable risk-aware processing
     },
     "Gradient Boosting": {
         "pipeline": Pipeline([
@@ -188,9 +186,88 @@ for name, model_info in models.items():
     # Store trained pipeline (contains both scaler and model)
     trained_pipelines[name] = pipeline
     
-    # Predictions (pipeline automatically scales X_test)
-    y_pred = pipeline.predict(X_test)
-    y_train_pred = pipeline.predict(X_train)
+    # RISK-AWARE PROCESSING: For Random Forest, calculate uncertainty and hedging
+    if model_info.get('risk_aware', False):
+        print(f"\n🎯 RISK-AWARE FORECASTING WITH HEDGING STRATEGY")
+        print(f"{'='*80}")
+        
+        # Get the actual Random Forest model from the pipeline
+        rf_model = pipeline.named_steps['model']
+        
+        # Collect predictions from all trees to measure volatility
+        all_tree_preds = np.array([tree.predict(X_test.values) for tree in rf_model.estimators_])
+        
+        # Forecast (Mean)
+        y_pred = np.mean(all_tree_preds, axis=0)
+        
+        # Risk (Standard Deviation across trees)
+        uncertainty = np.std(all_tree_preds, axis=0)
+        
+        # Dynamic Safety Stock (95% Confidence -> 1.96 Sigma)
+        safety_stock = 1.96 * uncertainty
+        
+        print(f"✓ Uncertainty Analysis:")
+        print(f"  - Average Forecast: {y_pred.mean():.6f} million tons")
+        print(f"  - Average Uncertainty (σ): {uncertainty.mean():.6f} million tons")
+        print(f"  - Average Safety Stock (1.96σ): {safety_stock.mean():.6f} million tons")
+        
+        # HEDGING STRATEGY: Check if polyethylene_price exists in features
+        if 'polyethylene_price' in X_test.columns:
+            price_col = 'polyethylene_price'
+            current_prices = X_test[price_col].values
+            
+            # Calculate 3-month rolling average (fill forward if NaN)
+            rolling_avg_price = X_test[price_col].rolling(window=3).mean().bfill().values
+            
+            # Apply hedging logic
+            hedging_factors = []
+            for p, avg in zip(current_prices, rolling_avg_price):
+                if p < avg * 0.95:  # Price dip -> Buy extra
+                    hedging_factors.append(1.05)
+                elif p > avg * 1.05:  # Price spike -> Buy less
+                    hedging_factors.append(0.95)
+                else:  # Standard
+                    hedging_factors.append(1.0)
+            
+            hedging_factors = np.array(hedging_factors)
+            
+            # Final order calculation with hedging
+            final_orders = (y_pred + safety_stock) * hedging_factors
+            
+            print(f"\n✓ Hedging Strategy Applied:")
+            print(f"  - Current Price Range: {current_prices.min():.2f} - {current_prices.max():.2f}")
+            print(f"  - Hedging Adjustments: {hedging_factors.min():.2f}x - {hedging_factors.max():.2f}x")
+            print(f"  - Final Order Range: {final_orders.min():.6f} - {final_orders.max():.6f} million tons")
+            
+            # Save detailed risk analysis results
+            risk_results = pd.DataFrame({
+                'Actual': y_test.values,
+                'Forecast': y_pred,
+                'Uncertainty_Sigma': uncertainty,
+                'Safety_Stock_95CI': safety_stock,
+                'Current_Price': current_prices,
+                'Rolling_Avg_Price': rolling_avg_price,
+                'Hedging_Factor': hedging_factors,
+                'Final_Order_Quantity': final_orders
+            })
+            risk_results.to_csv('outputs/Random_Forest_Risk_Analysis.csv', index=False)
+            print(f"\n✓ Detailed risk analysis saved to: outputs/Random_Forest_Risk_Analysis.csv")
+            
+            # Display sample results
+            print(f"\n📊 Risk-Aware Forecasting Results (Last 5 Records):")
+            print("="*80)
+            print(risk_results.tail().to_string(index=False))
+            print("="*80)
+        else:
+            print(f"\n⚠️  Price column not found - hedging strategy skipped")
+            print(f"   Using forecast + safety stock only")
+        
+        # Use standard predictions for training metrics
+        y_train_pred = pipeline.predict(X_train)
+    else:
+        # Standard predictions (pipeline automatically scales X_test)
+        y_pred = pipeline.predict(X_test)
+        y_train_pred = pipeline.predict(X_train)
     
     # Calculate metrics
     mae = mean_absolute_error(y_test, y_pred)
@@ -266,8 +343,28 @@ ensemble_estimators = [(name, trained_pipelines[name]) for name in top_3_models]
 ensemble_pipeline = VotingRegressor(estimators=ensemble_estimators)
 ensemble_pipeline.fit(X_train, y_train)  # Each sub-pipeline scales data independently
 
-# Evaluate ensemble
-y_pred_ensemble = ensemble_pipeline.predict(X_test)
+# Evaluate ensemble with RISK-AWARE ANALYSIS
+print(f"\n🎯 ENSEMBLE RISK-AWARE FORECASTING WITH HEDGING STRATEGY")
+print(f"{'='*80}")
+
+# Collect predictions from each model in the ensemble
+ensemble_individual_preds = []
+for name, pipeline in ensemble_estimators:
+    individual_pred = pipeline.predict(X_test)
+    ensemble_individual_preds.append(individual_pred)
+
+ensemble_individual_preds = np.array(ensemble_individual_preds)
+
+# Forecast (Mean across ensemble members)
+y_pred_ensemble = np.mean(ensemble_individual_preds, axis=0)
+
+# Risk (Standard Deviation across ensemble members)
+ensemble_uncertainty = np.std(ensemble_individual_preds, axis=0)
+
+# Dynamic Safety Stock (95% Confidence -> 1.96 Sigma)
+ensemble_safety_stock = 1.96 * ensemble_uncertainty
+
+# Calculate standard metrics
 mae_ensemble = mean_absolute_error(y_test, y_pred_ensemble)
 r2_ensemble = r2_score(y_test, y_pred_ensemble)
 mape_ensemble = np.mean(np.abs((y_test - y_pred_ensemble) / y_test)) * 100
@@ -277,6 +374,61 @@ print(f"\n🏆 Ensemble Pipeline Performance:")
 print(f"  ✓ Forecast Accuracy (1-MAPE): {forecast_accuracy_ensemble:.2f}%")
 print(f"  ✓ MAE: {mae_ensemble:.6f} million tons")
 print(f"  ✓ R² Score: {r2_ensemble:.4f}")
+
+print(f"\n✓ Ensemble Uncertainty Analysis:")
+print(f"  - Average Forecast: {y_pred_ensemble.mean():.6f} million tons")
+print(f"  - Average Uncertainty (σ): {ensemble_uncertainty.mean():.6f} million tons")
+print(f"  - Average Safety Stock (1.96σ): {ensemble_safety_stock.mean():.6f} million tons")
+
+# HEDGING STRATEGY for Ensemble
+if 'polyethylene_price' in X_test.columns:
+    price_col = 'polyethylene_price'
+    current_prices = X_test[price_col].values
+    
+    # Calculate 3-month rolling average (fill forward if NaN)
+    rolling_avg_price = X_test[price_col].rolling(window=3).mean().bfill().values
+    
+    # Apply hedging logic
+    ensemble_hedging_factors = []
+    for p, avg in zip(current_prices, rolling_avg_price):
+        if p < avg * 0.95:  # Price dip -> Buy extra
+            ensemble_hedging_factors.append(1.05)
+        elif p > avg * 1.05:  # Price spike -> Buy less
+            ensemble_hedging_factors.append(0.95)
+        else:  # Standard
+            ensemble_hedging_factors.append(1.0)
+    
+    ensemble_hedging_factors = np.array(ensemble_hedging_factors)
+    
+    # Final order calculation with hedging
+    ensemble_final_orders = (y_pred_ensemble + ensemble_safety_stock) * ensemble_hedging_factors
+    
+    print(f"\n✓ Ensemble Hedging Strategy Applied:")
+    print(f"  - Current Price Range: {current_prices.min():.2f} - {current_prices.max():.2f}")
+    print(f"  - Hedging Adjustments: {ensemble_hedging_factors.min():.2f}x - {ensemble_hedging_factors.max():.2f}x")
+    print(f"  - Final Order Range: {ensemble_final_orders.min():.6f} - {ensemble_final_orders.max():.6f} million tons")
+    
+    # Save detailed ensemble risk analysis results
+    ensemble_risk_results = pd.DataFrame({
+        'Actual': y_test.values,
+        'Forecast': y_pred_ensemble,
+        'Uncertainty_Sigma': ensemble_uncertainty,
+        'Safety_Stock_95CI': ensemble_safety_stock,
+        'Current_Price': current_prices,
+        'Rolling_Avg_Price': rolling_avg_price,
+        'Hedging_Factor': ensemble_hedging_factors,
+        'Final_Order_Quantity': ensemble_final_orders
+    })
+    ensemble_risk_results.to_csv('outputs/Ensemble_Risk_Analysis.csv', index=False)
+    print(f"\n✓ Detailed ensemble risk analysis saved to: outputs/Ensemble_Risk_Analysis.csv")
+    
+    # Display sample results
+    print(f"\n📊 Ensemble Risk-Aware Forecasting Results (Last 5 Records):")
+    print("="*80)
+    print(ensemble_risk_results.tail().to_string(index=False))
+    print("="*80)
+else:
+    print(f"\n⚠️  Price column not found - hedging strategy skipped for ensemble")
 
 # Add ensemble to results
 results.append({

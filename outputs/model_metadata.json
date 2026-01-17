@@ -1,8 +1,8 @@
 {
-    "timestamp": "2026-01-15 04:06:25",
+    "timestamp": "2026-01-18 00:10:55",
     "best_model": "Ensemble (Top 3)",
-    "best_forecast_accuracy": 98.75,
-    "best_r2": 0.7969,
+    "best_forecast_accuracy": 98.73,
+    "best_r2": 0.7951,
     "features": [
         "polyethylene_price",
         "Average Inflation percent index of Dollar",
@@ -20,7 +20,7 @@
     "total_models_evaluated": 5,
     "ensemble_members": [
         "Linear Regression",
-        "Random Forest",
+        "Random Forest (Risk-Aware)",
         "Gradient Boosting"
     ],
     "preprocessing": "StandardScaler (inside pipeline)",
