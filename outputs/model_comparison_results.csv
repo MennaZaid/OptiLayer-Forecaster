@@ -1,0 +1,6 @@
+Model,Forecast Accuracy (%),MAE (million tons),RMSE (million tons),R² Score,MAPE (%),Train R²,Overfitting
+Ensemble (Top 3),98.72,0.003883,0.00625,0.7854,1.28,0.9905,0.2051
+Linear Regression,98.67,0.003892,0.006095,0.7959,1.33,0.9609,0.165
+Random Forest (Risk-Aware),98.6,0.004274,0.007571,0.6851,1.4,0.9928,0.3077
+Gradient Boosting,98.6,0.004313,0.007621,0.681,1.4,0.998,0.317
+Ridge Regression,98.21,0.005283,0.00832,0.6197,1.79,0.937,0.3173
