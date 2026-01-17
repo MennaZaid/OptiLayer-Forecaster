@@ -548,21 +548,13 @@ elif page == "About":
     
     ### 👥 Team Information
     
-    **University:** [Your University Name]
+    **University:** The American University in Cairo (AUC)
     
-    **Faculty Leads:** [Faculty Names]
+    **Faculty Leads:** Dr. Seif Eldawlatly, Dr. Nouri Sakr
     
-    **Student Members:** [Student Names]
+    **Student Members:** Salma Waleed Elmara, Marina Nazeh, Mennatallah Zaid, Mariam Abdo, Omr Alhussein
     
     ---
-    
-    ### 📅 Timeline
-    
-    - **Development Period:** October 2025 - January 2026
-    - **Submission Deadline:** January 8, 2026
-    - **Evaluation Period:** January 8-14, 2026
-    - **Finalist Announcement:** January 15, 2026
-    - **Final Demonstration:** February 2026
     """)
     
     st.success("🌟 This dashboard represents our team's commitment to solving real-world industry challenges through innovative AI solutions.")
