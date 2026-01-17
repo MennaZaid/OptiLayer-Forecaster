@@ -200,7 +200,7 @@ for name, model_info in models.items():
         'Absolute_Error': np.abs(y_test.values - y_pred),
         'Percentage_Error': np.abs((y_test.values - y_pred) / y_test.values) * 100
     })
-    predictions_df.to_csv(f'outputs/{name.replace(" ", "_")}_predictions.csv', index=False)
+    predictions_df.to_csv(f'outputs/{name.replace(\" \", \"_\")}_predictions.csv', index=False)
 
 # --- Risk-Aware Random Forest (from random_forests.py) ---
 def risk_aware_random_forest(X_train, y_train, X_test, y_test, price_col='polyethylene_price', n_estimators=100, random_state=42):
