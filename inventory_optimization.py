@@ -6,21 +6,10 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import os
 
+
 print("="*80)
 print("INVENTORY OPTIMIZATION MODULE")
-print("Using Best Pipeline (Scaler + Model)")
 print("="*80)
-
-# Load the best pipeline (contains both scaler and model)
-with open('outputs/best_pipeline.pkl', 'rb') as f:
-    pipeline = pickle.load(f)
-
-with open('outputs/model_metadata.json', 'r') as f:
-    metadata = json.load(f)
-
-print(f"\nLoaded pipeline: {metadata['best_model']}")
-print(f"Pipeline accuracy: {metadata['best_accuracy']:.2f}%")
-print("Pipeline automatically handles feature scaling!")
 
 # Load historical data
 df = pd.read_excel('historical_xlpe_demand.xlsx')
@@ -162,12 +151,9 @@ inventory_levels = []
 current_inventory = results['max_inventory_level']  # Start with max inventory
 
 for month in range(1, 13):
-    # Predict demand (pipeline handles scaling automatically!)
-    predicted_demand = pipeline.predict(latest_features)[0]
-    
-    # Add some variation (simulate real-world fluctuation)
+    # Simulate demand for the month (no model prediction)
     demand_variation = np.random.normal(0, std_demand * 0.1)
-    adjusted_demand = max(0, predicted_demand + demand_variation)
+    adjusted_demand = max(0, avg_demand + demand_variation)
     
     # Check if reorder needed
     if current_inventory <= results['reorder_point']:
