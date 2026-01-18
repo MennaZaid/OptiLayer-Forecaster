@@ -1224,7 +1224,7 @@ elif page == "About":
     
     ---
     
-    ### 🎯 Project Objectives
+    ### Project Objectives
     
     This AI-powered solution addresses critical challenges in the cable manufacturing industry:
     
@@ -1235,7 +1235,7 @@ elif page == "About":
     
     ---
     
-    ### 🤖 Machine Learning Innovation
+    ###  Machine Learning Innovation
     
     **Ensemble Forecasting Architecture:**
     - **Random Forest Regressor (60.2%):** Risk-aware predictions with tree-level uncertainty
@@ -1400,27 +1400,6 @@ elif page == "About":
     
     ---
     
-    ### 📚 Documentation
-    
-    - **METHODOLOGY_REPORT.md:** Complete technical methodology
-    - **ENHANCED_SOLUTION_GUIDE.md:** Implementation guide with code examples
-    - **FORECASTING_IMPROVEMENTS.md:** Detailed explanation of all enhancements
-    - **INFRASTRUCTURE_SCENARIO_FORECASTING_GUIDE.md:** Infrastructure forecasting methodology
-    - **SCENARIO_FORECASTING_REPORT.md:** Business-focused 2026 forecast report
-    - **SIMPLE_EXPLANATION.md:** Non-technical project overview
-    
-    ---
-    
-    ### 🎓 Academic Rigor
-    
-    - All data sources properly cited
-    - Statistical validation (train/test split, cross-validation)
-    - Overfitting analysis (train vs test accuracy)
-    - Ensemble justified through risk-adjusted scoring
-    - Infrastructure methodology validated against industry standards
-    
-    ---
-    
     ### 👥 Target Audience
     
     - Cable manufacturing companies (ARABCAB, etc.)
@@ -1444,14 +1423,6 @@ elif page == "About":
     
     ---
     
-    ### 📧 Contact & Support
-    
-    **Competition:** ARABCAB Scientific Competition  
-    **Industry:** Cable & Metals Manufacturing  
-    **Geography:** Egypt • Bahrain • UAE  
-    **Year:** 2024-2025  
-    
-    *This dashboard was built with ❤️ using Python, scikit-learn, and Streamlit.*
     """)
 
 # Footer
