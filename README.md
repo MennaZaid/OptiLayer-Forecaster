@@ -1,10 +1,11 @@
 
-```markdown
 # OptiLayer-Forecaster: XLPE Demand Forecasting & Inventory Optimization
 
 An advanced machine learning system for predicting XLPE cable demand and optimizing inventory levels using ensemble learning with risk-aware forecasting and hedging strategies.
 
 ---
+## Team Members:
+Salma Elmarakby, Marina Nazeh, Omar Al-Hussein, Mariam Abdo, Mennatallah Zaid
 
 ## 🚀 Quick Start
 
