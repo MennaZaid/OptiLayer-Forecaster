@@ -1,8 +1,8 @@
 {
-    "timestamp": "2026-01-18 01:08:54",
+    "timestamp": "2026-01-18 02:19:48",
     "best_model": "Ensemble (Top 3)",
-    "best_forecast_accuracy": 98.56,
-    "best_r2": 0.7615,
+    "best_forecast_accuracy": 98.53,
+    "best_r2": 0.7057,
     "features": [
         "polyethylene_price",
         "Average Inflation percent index of Dollar",
@@ -19,10 +19,13 @@
     "test_size": 60,
     "total_models_evaluated": 5,
     "ensemble_members": [
-        "Linear Regression",
         "Random Forest (Risk-Aware)",
         "Ridge Regression"
     ],
+    "ensemble_weights": {
+        "Random Forest (Risk-Aware)": 0.6028500950362852,
+        "Ridge Regression": 0.3971499049637147
+    },
     "preprocessing": "StandardScaler (inside pipeline)",
-    "innovation": "Scikit-learn Pipelines for production-ready deployment"
+    "innovation": "Scikit-learn Pipelines + Optimized Selective Ensemble with Exponential Weights"
 }
