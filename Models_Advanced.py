@@ -46,6 +46,38 @@ print(f"Date range: {df['Date'].min()} to {df['Date'].max()}")
 # Data preprocessing
 df_clean = df.drop(columns=['Date', 'Year', 'Month']).dropna()
 
+# INNOVATION: Add Infrastructure Proxy Features for Scenario Forecasting
+print(f"\n{'='*80}")
+print("INFRASTRUCTURE PROXY FEATURE ENGINEERING")
+print(f"{'='*80}")
+print("Creating infrastructure-related proxies for scenario-based forecasting:")
+print("  1. Construction Output Index (proxy based on GDP growth)")
+print("  2. Urbanization Rate (proxy based on electricity consumption)")
+print("  3. Infrastructure Investment (proxy based on demand trends)")
+
+# Create infrastructure proxy features (synthetic based on existing features)
+# In production, these would come from actual infrastructure planning data
+if 'gdp_growth_rate' in df_clean.columns:
+    # Construction output tends to correlate with GDP growth
+    df_clean['construction_output_index'] = 100 + (df_clean['gdp_growth_rate'] * 2.5)
+else:
+    df_clean['construction_output_index'] = 100.0
+
+if 'Total electricity consumption, Middle East' in df_clean.columns:
+    # Urbanization correlates with electricity infrastructure
+    df_clean['urbanization_rate'] = (df_clean['Total electricity consumption, Middle East'] / 
+                                     df_clean['Total electricity consumption, Middle East'].max()) * 100
+else:
+    df_clean['urbanization_rate'] = 50.0
+
+# Infrastructure investment proxy (based on demand momentum)
+df_clean['infrastructure_investment'] = df_clean['xlpe_demand_Million_tons'].rolling(3).mean()
+
+print(f"✓ Infrastructure proxy features added:")
+print(f"  - construction_output_index: Mean {df_clean['construction_output_index'].mean():.2f}")
+print(f"  - urbanization_rate: Mean {df_clean['urbanization_rate'].mean():.2f}%")
+print(f"  - infrastructure_investment: Mean {df_clean['infrastructure_investment'].mean():.6f} million tons")
+
 # CRITICAL FORECASTING INNOVATION: Add lag-based features
 print(f"\nAdding time-series lag features...")
 df_clean['lag_1'] = df_clean['xlpe_demand_Million_tons'].shift(1)
@@ -675,6 +707,176 @@ metadata = {
 with open('outputs/model_metadata.json', 'w') as f:
     json.dump(metadata, f, indent=4)
 
+# INNOVATION: SCENARIO-BASED FORECASTING WITH INFRASTRUCTURE INPUT
+print("\n" + "="*80)
+print("SCENARIO-BASED FORECASTING: 2026 INFRASTRUCTURE PROJECTION")
+print("="*80)
+
+def predict_with_infrastructure_scenario(pipeline, base_features, infrastructure_tons, 
+                                         feature_names, scenario_name="2026"):
+    """
+    Predict XLPE demand incorporating planned infrastructure input.
+    
+    Parameters:
+    -----------
+    pipeline : trained sklearn pipeline
+        The trained forecasting model
+    base_features : dict
+        Dictionary of feature values (without infrastructure)
+    infrastructure_tons : float
+        Planned infrastructure cable demand in tons (will be converted to million tons)
+    feature_names : list
+        List of feature names expected by the model
+    scenario_name : str
+        Name of the scenario for reporting
+    
+    Returns:
+    --------
+    dict : Prediction results with infrastructure contribution
+    """
+    # Convert infrastructure tons to million tons (match dataset units)
+    infrastructure_million_tons = infrastructure_tons / 1_000_000
+    
+    print(f"\n🎯 {scenario_name} Infrastructure Scenario")
+    print(f"{'='*80}")
+    print(f"Planned Infrastructure:")
+    print(f"  • Cable Requirements: {infrastructure_tons:,.0f} tons ({infrastructure_million_tons:.6f} million tons)")
+    print(f"  • Based on: 8,779.9 km² × 100 km/km² × 1 t/km")
+    print(f"  • Medium-voltage XLPE cables for grid expansion")
+    
+    # Create feature vector
+    scenario_features = base_features.copy()
+    
+    # Update infrastructure-related features based on planned infrastructure
+    if 'infrastructure_investment' in feature_names:
+        # Infrastructure investment scales with planned deployment
+        scenario_features['infrastructure_investment'] = infrastructure_million_tons * 0.8
+    
+    if 'construction_output_index' in feature_names:
+        # High infrastructure = high construction activity
+        scenario_features['construction_output_index'] = scenario_features.get('construction_output_index', 100) * 1.15
+    
+    if 'urbanization_rate' in feature_names:
+        # Infrastructure expansion indicates urban growth
+        scenario_features['urbanization_rate'] = scenario_features.get('urbanization_rate', 50) * 1.10
+    
+    # Create DataFrame with correct feature order
+    X_scenario = pd.DataFrame([scenario_features], columns=feature_names)
+    
+    # Make prediction
+    predicted_demand = pipeline.predict(X_scenario)[0]
+    
+    print(f"\n📊 Prediction Results:")
+    print(f"{'='*80}")
+    print(f"  Base XLPE Demand (model prediction): {predicted_demand:.6f} million tons")
+    print(f"  Infrastructure Contribution: {infrastructure_million_tons:.6f} million tons")
+    print(f"  Total Projected Demand: {(predicted_demand + infrastructure_million_tons):.6f} million tons")
+    print(f"  Total Projected Demand: {((predicted_demand + infrastructure_million_tons) * 1_000_000):,.0f} tons")
+    
+    # Calculate infrastructure percentage
+    total_demand = predicted_demand + infrastructure_million_tons
+    infra_percentage = (infrastructure_million_tons / total_demand) * 100
+    
+    print(f"\n💡 Infrastructure Impact:")
+    print(f"  • Infrastructure represents {infra_percentage:.1f}% of total demand")
+    print(f"  • Model-predicted demand: {(1 - infra_percentage/100)*100:.1f}%")
+    
+    return {
+        'scenario_name': scenario_name,
+        'base_demand_million_tons': predicted_demand,
+        'infrastructure_million_tons': infrastructure_million_tons,
+        'total_demand_million_tons': total_demand,
+        'total_demand_tons': total_demand * 1_000_000,
+        'infrastructure_percentage': infra_percentage,
+        'features_used': scenario_features
+    }
+
+# Prepare 2026 scenario features (use last known values as baseline)
+print(f"\nPreparing 2026 baseline features from most recent data...")
+last_record = X_test.iloc[-1].to_dict()
+
+# Update with 2026 projections (adjust based on trends)
+scenario_2026_features = last_record.copy()
+
+# Project key economic indicators (conservative estimates)
+if 'gdp_growth_rate' in scenario_2026_features:
+    scenario_2026_features['gdp_growth_rate'] = 3.5  # Middle East GDP growth projection
+
+if 'polyethylene_price' in scenario_2026_features:
+    # Assume slight price increase
+    scenario_2026_features['polyethylene_price'] = scenario_2026_features['polyethylene_price'] * 1.02
+
+if 'Total electricity consumption, Middle East' in scenario_2026_features:
+    # Assume 5% annual growth in electricity consumption
+    scenario_2026_features['Total electricity consumption, Middle East'] *= 1.05
+
+print(f"✓ Baseline features prepared")
+print(f"  Key assumptions:")
+print(f"    - GDP growth: {scenario_2026_features.get('gdp_growth_rate', 'N/A')}%")
+print(f"    - Polyethylene price: {scenario_2026_features.get('polyethylene_price', 'N/A'):.2f}")
+
+# Run 2026 infrastructure scenario
+infrastructure_2026_tons = 878_000  # Planned infrastructure: 878,000 tons
+
+scenario_results = predict_with_infrastructure_scenario(
+    pipeline=best_pipeline,
+    base_features=scenario_2026_features,
+    infrastructure_tons=infrastructure_2026_tons,
+    feature_names=list(X.columns),
+    scenario_name="2026 Infrastructure Expansion"
+)
+
+# Save scenario results
+scenario_output = pd.DataFrame([{
+    'Scenario': scenario_results['scenario_name'],
+    'Base_Demand_Million_Tons': scenario_results['base_demand_million_tons'],
+    'Infrastructure_Million_Tons': scenario_results['infrastructure_million_tons'],
+    'Total_Demand_Million_Tons': scenario_results['total_demand_million_tons'],
+    'Total_Demand_Tons': scenario_results['total_demand_tons'],
+    'Infrastructure_Percentage': scenario_results['infrastructure_percentage'],
+    'Model_Used': best_model_name
+}])
+
+scenario_output.to_csv('outputs/scenario_forecast_2026.csv', index=False)
+print(f"\n✅ Scenario forecast saved to: outputs/scenario_forecast_2026.csv")
+
+# Create detailed scenario report
+with open('outputs/scenario_forecast_2026_report.txt', 'w', encoding='utf-8') as f:
+    f.write("="*80 + "\n")
+    f.write("2026 XLPE CABLE DEMAND FORECAST - INFRASTRUCTURE SCENARIO\n")
+    f.write("="*80 + "\n\n")
+    
+    f.write("METHODOLOGY:\n")
+    f.write("-" * 80 + "\n")
+    f.write("Total Cable Mass ≈ Infrastructure Area (km²) × Avg. Cable Density (km/km²) × Avg. Cable Weight (t/km)\n")
+    f.write(f"Calculation: 8,779.9 km² × 100 km/km² × 1 t/km ≈ {infrastructure_2026_tons:,} tons\n")
+    f.write("Source: ngoclancable.com (medium-voltage XLPE cables)\n\n")
+    
+    f.write("FORECAST RESULTS:\n")
+    f.write("-" * 80 + "\n")
+    f.write(f"Model: {best_model_name}\n")
+    f.write(f"Forecast Accuracy: {results_df[results_df['Model'] == best_model_name]['Forecast Accuracy (%)'].values[0]:.2f}%\n\n")
+    
+    f.write(f"Base XLPE Demand (from model): {scenario_results['base_demand_million_tons']:.6f} million tons\n")
+    f.write(f"Infrastructure Contribution: {scenario_results['infrastructure_million_tons']:.6f} million tons\n")
+    f.write(f"TOTAL PROJECTED DEMAND: {scenario_results['total_demand_million_tons']:.6f} million tons\n")
+    f.write(f"TOTAL PROJECTED DEMAND: {scenario_results['total_demand_tons']:,.0f} tons\n\n")
+    
+    f.write("DEMAND BREAKDOWN:\n")
+    f.write("-" * 80 + "\n")
+    f.write(f"Infrastructure (planned): {scenario_results['infrastructure_percentage']:.1f}%\n")
+    f.write(f"Market demand (model): {100 - scenario_results['infrastructure_percentage']:.1f}%\n\n")
+    
+    f.write("ASSUMPTIONS:\n")
+    f.write("-" * 80 + "\n")
+    f.write("• GDP Growth: 3.5% (Middle East projection)\n")
+    f.write("• Polyethylene Price: +2% from last known value\n")
+    f.write("• Electricity Consumption: +5% annual growth\n")
+    f.write("• Infrastructure: 8,779.9 km² new grid area\n")
+    f.write("• Cable specifications: Medium-voltage XLPE (100 km/km², 1 t/km)\n")
+
+print(f"✅ Detailed scenario report saved to: outputs/scenario_forecast_2026_report.txt")
+
 # TECHNICAL RIGOR: Advanced Visualizations
 print("\n" + "="*80)
 print("GENERATING ADVANCED VISUALIZATIONS")
@@ -846,18 +1048,76 @@ print("  ✓ Learning curve (if applicable)")
 print("\n" + "="*80)
 print("✅ ADVANCED FORECASTING COMPLETE - PRODUCTION READY")
 print("="*80)
+
+# 5. Scenario Forecast Visualization
+print("Generating scenario forecast visualization...")
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+# 5a. Demand Breakdown Pie Chart
+ax = axes[0]
+demand_breakdown = [
+    scenario_results['base_demand_million_tons'],
+    scenario_results['infrastructure_million_tons']
+]
+labels = [
+    f"Market Demand\n({100 - scenario_results['infrastructure_percentage']:.1f}%)",
+    f"Infrastructure\n({scenario_results['infrastructure_percentage']:.1f}%)"
+]
+colors = ['#3498db', '#e74c3c']
+explode = (0.05, 0.05)
+
+ax.pie(demand_breakdown, labels=labels, colors=colors, autopct='%1.1f%%',
+       explode=explode, shadow=True, startangle=90, textprops={'fontsize': 11, 'fontweight': 'bold'})
+ax.set_title(f'2026 XLPE Demand Breakdown\nTotal: {scenario_results["total_demand_million_tons"]:.3f} Million Tons',
+             fontsize=14, fontweight='bold')
+
+# 5b. Infrastructure Impact Bar Chart
+ax = axes[1]
+categories = ['Base\nDemand', 'Infrastructure\nContribution', 'Total\nDemand']
+values = [
+    scenario_results['base_demand_million_tons'],
+    scenario_results['infrastructure_million_tons'],
+    scenario_results['total_demand_million_tons']
+]
+bar_colors = ['#3498db', '#e74c3c', '#2ecc71']
+
+bars = ax.bar(categories, values, color=bar_colors, alpha=0.7, edgecolor='black', linewidth=1.5)
+ax.set_ylabel('XLPE Demand (Million Tons)', fontsize=12, fontweight='bold')
+ax.set_title('2026 Demand Components', fontsize=14, fontweight='bold')
+ax.grid(axis='y', alpha=0.3)
+
+# Add value labels on bars
+for bar, value in zip(bars, values):
+    height = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2., height,
+            f'{value:.4f}M tons\n({value*1000000:,.0f} tons)',
+            ha='center', va='bottom', fontsize=9, fontweight='bold')
+
+plt.tight_layout()
+plt.savefig('outputs/scenario_forecast_2026.png', dpi=300, bbox_inches='tight')
+plt.close()
+
+print("✓ Scenario forecast visualization saved")
+print("="*80)
+
 print(f"\n🎯 Innovation Highlights:")
 print(f"  ✓ Scikit-learn Pipelines for production deployment")
 print(f"  ✓ {len(models)} different ML algorithms evaluated")
 print(f"  ✓ Hyperparameter optimization with GridSearchCV on pipelines")
 print(f"  ✓ Cross-validation prevents data leakage")
 print(f"  ✓ Ensemble modeling for improved accuracy")
+print(f"  ✓ Infrastructure-based scenario forecasting")
 print(f"  ✓ Single pipeline.pkl file contains entire workflow")
 print(f"  ✓ Comprehensive error analysis and diagnostics")
 print(f"\n🏆 Best Performance: {best_model_name}")
 print(f"  ✓ Forecast Accuracy (1-MAPE): {results_df[results_df['Model'] == best_model_name]['Forecast Accuracy (%)'].values[0]:.2f}%")
 print(f"  ✓ R² Score: {results_df[results_df['Model'] == best_model_name]['R² Score'].values[0]:.4f}")
 print(f"  ✓ MAE: {results_df[results_df['Model'] == best_model_name]['MAE (million tons)'].values[0]:.6f} million tons")
+
+print(f"\n📊 2026 Scenario Forecast:")
+print(f"  ✓ Total Projected Demand: {scenario_results['total_demand_million_tons']:.6f} million tons ({scenario_results['total_demand_tons']:,.0f} tons)")
+print(f"  ✓ Infrastructure Component: {scenario_results['infrastructure_million_tons']:.6f} million tons ({scenario_results['infrastructure_percentage']:.1f}%)")
+print(f"  ✓ Market Component: {scenario_results['base_demand_million_tons']:.6f} million tons ({100-scenario_results['infrastructure_percentage']:.1f}%)")
 
 print("\n" + "="*80)
 print("DEPLOYMENT INSTRUCTIONS")
@@ -866,4 +1126,8 @@ print("To use the trained pipeline in production:")
 print("  1. Load: pipeline = pickle.load(open('outputs/best_pipeline.pkl', 'rb'))")
 print("  2. Predict: predictions = pipeline.predict(new_data)")
 print("  3. That's it! Pipeline handles scaling automatically")
+print("\nFor scenario forecasting:")
+print("  1. Use predict_with_infrastructure_scenario() function")
+print("  2. Provide base features + infrastructure tons")
+print("  3. Get total demand projection with infrastructure impact")
 print("="*80)

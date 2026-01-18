@@ -1,14 +1,17 @@
 {
-    "timestamp": "2026-01-18 02:19:48",
+    "timestamp": "2026-01-18 03:09:16",
     "best_model": "Ensemble (Top 3)",
-    "best_forecast_accuracy": 98.53,
-    "best_r2": 0.7057,
+    "best_forecast_accuracy": 98.6,
+    "best_r2": 0.7347,
     "features": [
         "polyethylene_price",
         "Average Inflation percent index of Dollar",
         "gdp_growth_rate",
         "Total electricity consumption, Middle East",
         "Monthy growth rate , Middle East %",
+        "construction_output_index",
+        "urbanization_rate",
+        "infrastructure_investment",
         "lag_1",
         "lag_3",
         "lag_12",
@@ -23,8 +26,8 @@
         "Ridge Regression"
     ],
     "ensemble_weights": {
-        "Random Forest (Risk-Aware)": 0.6028500950362852,
-        "Ridge Regression": 0.3971499049637147
+        "Random Forest (Risk-Aware)": 0.6018257351436294,
+        "Ridge Regression": 0.39817426485637064
     },
     "preprocessing": "StandardScaler (inside pipeline)",
     "innovation": "Scikit-learn Pipelines + Optimized Selective Ensemble with Exponential Weights"

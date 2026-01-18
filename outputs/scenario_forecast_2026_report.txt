@@ -1,0 +1,32 @@
+================================================================================
+2026 XLPE CABLE DEMAND FORECAST - INFRASTRUCTURE SCENARIO
+================================================================================
+
+METHODOLOGY:
+--------------------------------------------------------------------------------
+Total Cable Mass ≈ Infrastructure Area (km²) × Avg. Cable Density (km/km²) × Avg. Cable Weight (t/km)
+Calculation: 8,779.9 km² × 100 km/km² × 1 t/km ≈ 878,000 tons
+Source: ngoclancable.com (medium-voltage XLPE cables)
+
+FORECAST RESULTS:
+--------------------------------------------------------------------------------
+Model: Ensemble (Top 3)
+Forecast Accuracy: 98.60%
+
+Base XLPE Demand (from model): 0.388848 million tons
+Infrastructure Contribution: 0.878000 million tons
+TOTAL PROJECTED DEMAND: 1.266848 million tons
+TOTAL PROJECTED DEMAND: 1,266,848 tons
+
+DEMAND BREAKDOWN:
+--------------------------------------------------------------------------------
+Infrastructure (planned): 69.3%
+Market demand (model): 30.7%
+
+ASSUMPTIONS:
+--------------------------------------------------------------------------------
+• GDP Growth: 3.5% (Middle East projection)
+• Polyethylene Price: +2% from last known value
+• Electricity Consumption: +5% annual growth
+• Infrastructure: 8,779.9 km² new grid area
+• Cable specifications: Medium-voltage XLPE (100 km/km², 1 t/km)
