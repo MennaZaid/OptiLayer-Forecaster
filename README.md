@@ -8,6 +8,7 @@ An advanced machine learning system for predicting XLPE cable demand and optimiz
 Salma Elmarakby, Marina Nazeh, Omar Al-Hussein, Mariam Abdo, Mennatallah Zaid
 
 ##  Quick Start
+<img width="945" height="466" alt="image" src="https://github.com/user-attachments/assets/519ffb3e-52ef-4646-a67a-f3867836a96a" />
 
 ### 1. Install Dependencies
 ```bash
