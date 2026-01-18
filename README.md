@@ -7,7 +7,7 @@ An advanced machine learning system for predicting XLPE cable demand and optimiz
 ## Team Members:
 Salma Elmarakby, Marina Nazeh, Omar Al-Hussein, Mariam Abdo, Mennatallah Zaid
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### 1. Install Dependencies
 ```bash
@@ -81,16 +81,16 @@ d:\ArabCab\OptiLayer-Forecaster\
 
 ---
 
-## 📊 What Each Module Does
+##  What Each Module Does
 
 ### Models_Advanced.py
 **Advanced ML Forecasting System with 5 Models**
 
 **Key Features:**
-- ⏱️ **Time-Series Architecture:** Lag-based features (lag_1, lag_3, lag_12 seasonal), rolling mean windows
-- 🔧 **Scikit-learn Pipelines:** StandardScaler → Model (prevents data leakage)
-- 🎯 **Time-Series Cross-Validation:** Preserves temporal order (no random shuffling)
-- 🤖 **5 Advanced Models:**
+-  **Time-Series Architecture:** Lag-based features (lag_1, lag_3, lag_12 seasonal), rolling mean windows
+-  **Scikit-learn Pipelines:** StandardScaler → Model (prevents data leakage)
+-  **Time-Series Cross-Validation:** Preserves temporal order (no random shuffling)
+-  **5 Advanced Models:**
   - Linear Regression (Enhanced) with weighted lags & asymmetric loss
   - Ridge Regression with hyperparameter tuning
   - Random Forest (Risk-Aware) with multi-tree uncertainty
@@ -116,12 +116,12 @@ d:\ArabCab\OptiLayer-Forecaster\
 **Inventory Optimizer Using AI Forecasts**
 
 **Key Features:**
-- 🧠 **Uses YOUR Forecasts:** Loads ensemble predictions from Models_Advanced.py
-- 📦 **Safety Stock Calculation:** Based on service level (95% default) using AI uncertainty
-- 📊 **Economic Order Quantity (EOQ):** Optimizes order size vs. holding costs
-- 📈 **Reorder Point (ROP):** Prevents stockouts during lead time
-- 💰 **Total Cost Analysis:** Holding, ordering, and potential stockout costs
-- 🔄 **12-Month Simulation:** Projects inventory levels with periodic ordering
+-  **Uses YOUR Forecasts:** Loads ensemble predictions from Models_Advanced.py
+-  **Safety Stock Calculation:** Based on service level (95% default) using AI uncertainty
+-  **Economic Order Quantity (EOQ):** Optimizes order size vs. holding costs
+-  **Reorder Point (ROP):** Prevents stockouts during lead time
+-  **Total Cost Analysis:** Holding, ordering, and potential stockout costs
+-  **12-Month Simulation:** Projects inventory levels with periodic ordering
 
 **Inventory Parameters Calculated:**
 - Safety Stock: Volume needed to maintain service level
@@ -155,7 +155,7 @@ d:\ArabCab\OptiLayer-Forecaster\
 
 ---
 
-## 🎯 Key Results & Metrics
+##  Key Results & Metrics
 
 ### Model Performance
 - **Best Model:** Ensemble (Top 3) with weighted predictions
@@ -176,7 +176,7 @@ d:\ArabCab\OptiLayer-Forecaster\
 
 ---
 
-## 🔧 Customization
+## Customization
 
 ### Adjust Inventory Parameters (inventory_optimization.py)
 ```python
@@ -201,7 +201,7 @@ boost_factor = 1.5         # How much to boost best model
 
 ---
 
-## 📈 Workflow Overview
+##  Workflow Overview
 
 ```
 1. Load Historical Data
@@ -239,23 +239,23 @@ boost_factor = 1.5         # How much to boost best model
 
 ---
 
-## 🚨 Troubleshooting
+##  Troubleshooting
 
 ### Models_Advanced.py fails
-- ✅ Check historical_xlpe_demand.xlsx is in the same folder
-- ✅ Verify all required columns: `xlpe_demand_Million_tons`, `Date`, etc.
-- ✅ Ensure Python 3.8+ with required packages: `pip install -r requirements.txt`
+- Check historical_xlpe_demand.xlsx is in the same folder
+- Verify all required columns: `xlpe_demand_Million_tons`, `Date`, etc.
+- Ensure Python 3.8+ with required packages: `pip install -r requirements.txt`
 
 ### inventory_optimization.py fails
-- ✅ Run Models_Advanced.py first (generates required forecast files)
-- ✅ Check Ensemble_Risk_Analysis.csv exists
-- ✅ Verify historical_xlpe_demand.xlsx is accessible
+- Run Models_Advanced.py first (generates required forecast files)
+- Check Ensemble_Risk_Analysis.csv exists
+- Verify historical_xlpe_demand.xlsx is accessible
 
 ### Dashboard.py fails
-- ✅ Run both Models_Advanced.py and inventory_optimization.py first
-- ✅ Check all files in outputs folder exist
-- ✅ Install Streamlit: `pip install streamlit`
-- ✅ If browser doesn't open, manually go to `http://localhost:8501`
+- Run both Models_Advanced.py and inventory_optimization.py first
+- Check all files in outputs folder exist
+- Install Streamlit: `pip install streamlit`
+- If browser doesn't open, manually go to `http://localhost:8501`
 
 ### Missing data columns
 - Some features are optional (polyethylene_price, gdp_growth_rate, etc.)
@@ -264,7 +264,7 @@ boost_factor = 1.5         # How much to boost best model
 
 ---
 
-## 📋 Dependencies
+##  Dependencies
 
 See requirements.txt for complete list:
 - **scikit-learn** - Machine learning models & pipelines
@@ -278,15 +278,15 @@ See requirements.txt for complete list:
 
 ---
 
-## 🏆 Innovation Highlights
+##  Innovation Highlights
 
-✨ **Scikit-learn Pipelines:** Production-ready preprocessing (prevents data leakage)  
-✨ **Time-Series Architecture:** Lag-based features + temporal cross-validation  
-✨ **Risk-Aware Forecasting:** Uncertainty quantification from ensemble variance  
-✨ **Hedging Strategies:** Price-based order adjustments  
-✨ **Optimized Ensemble:** Selective models with exponential weighting  
-✨ **Infrastructure Scenarios:** 2026 projections with planned infrastructure  
-✨ **Interactive Dashboard:** 7-page Streamlit app with real-time analysis  
+ **Scikit-learn Pipelines:** Production-ready preprocessing (prevents data leakage)  
+ **Time-Series Architecture:** Lag-based features + temporal cross-validation  
+ **Risk-Aware Forecasting:** Uncertainty quantification from ensemble variance  
+ **Hedging Strategies:** Price-based order adjustments  
+ **Optimized Ensemble:** Selective models with exponential weighting  
+ **Infrastructure Scenarios:** 2026 projections with planned infrastructure  
+ **Interactive Dashboard:** 7-page Streamlit app with real-time analysis  
 
 ---
 
