@@ -1,284 +1,343 @@
 import pandas as pd
 import numpy as np
-import pickle
 import json
-import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
 import os
+from scipy import stats
+from datetime import datetime
+
+print("=" * 80)
+print("INVENTORY OPTIMIZER: USING EXISTING AI FORECASTS")
+print("=" * 80)
 
 
-print("="*80)
-print("INVENTORY OPTIMIZATION MODULE")
-print("="*80)
-
-# Load historical data
-df = pd.read_excel('historical_xlpe_demand.xlsx')
-df_clean = df.drop(columns=['Date', 'Year', 'Month']).dropna()
-
-# Calculate demand statistics
-xlpe_demand = df_clean['xlpe_demand_Million_tons']
-avg_demand = xlpe_demand.mean()
-std_demand = xlpe_demand.std()
-min_demand = xlpe_demand.min()
-max_demand = xlpe_demand.max()
-
-print(f"\nHistorical Demand Statistics:")
-print(f"  Average: {avg_demand:.6f} million tons")
-print(f"  Std Dev: {std_demand:.6f} million tons")
-print(f"  Min: {min_demand:.6f} million tons")
-print(f"  Max: {max_demand:.6f} million tons")
-
-# Inventory optimization parameters
 class InventoryOptimizer:
-    def __init__(self, avg_demand, std_demand, lead_time_days=30, service_level=0.95):
+    def __init__(self, forecast_path='outputs/Ensemble_Risk_Analysis.csv',
+                 historical_path='historical_xlpe_demand.xlsx'):
         """
-        avg_demand: Average monthly demand (million tons)
-        std_demand: Standard deviation of demand (million tons)
-        lead_time_days: Lead time for procurement (days)
-        service_level: Desired service level (95% = 0.95)
+        Uses YOUR AI forecasts - doesn't forecast anything new.
+        
+        Parameters:
+        -----------
+        forecast_path : str
+            Path to your AI forecast outputs (Ensemble_Risk_Analysis.csv)
+        historical_path : str
+            Path to historical demand data (for demand std dev)
         """
-        self.avg_demand = avg_demand
-        self.std_demand = std_demand
-        self.lead_time_months = lead_time_days / 30  # Convert to months
-        self.service_level = service_level
+        # Load YOUR existing AI forecasts
+        self.load_ai_forecasts(forecast_path)
         
-        # Cost parameters (adjustable based on company data)
-        self.holding_cost_per_ton = 50  # USD per ton per month
-        self.ordering_cost = 5000  # USD per order
-        self.stockout_cost_per_ton = 500  # USD per ton shortage
-        self.material_cost_per_ton = 2000  # USD per ton
+        # Load historical data for demand statistics
+        self.load_historical_stats(historical_path)
         
-    def calculate_safety_stock(self):
-        """Calculate safety stock using service level"""
-        from scipy import stats
-        z_score = stats.norm.ppf(self.service_level)
-        safety_stock = z_score * self.std_demand * np.sqrt(self.lead_time_months)
-        return safety_stock
+        print(f"✓ Loaded {len(self.forecast_data)} AI forecasts")
+        print(f"✓ Latest forecast: {self.latest_forecast['Forecast']:.6f}M tons")
+        print(f"✓ AI uncertainty (σ): {self.latest_forecast['Uncertainty_Sigma']:.6f}")
     
-    def calculate_reorder_point(self):
-        """Calculate reorder point (ROP)"""
-        lead_time_demand = self.avg_demand * self.lead_time_months
-        safety_stock = self.calculate_safety_stock()
-        rop = lead_time_demand + safety_stock
-        return rop
+    def load_ai_forecasts(self, path):
+        """Load YOUR existing AI forecasts"""
+        try:
+            self.forecast_data = pd.read_csv(path)
+            self.latest_forecast = self.forecast_data.iloc[-1].to_dict()
+        except FileNotFoundError:
+            print(f"❌ Error: AI forecast file not found: {path}")
+            print("Run Models_Advanced.py first to generate forecasts")
+            raise
     
-    def calculate_economic_order_quantity(self):
-        """Calculate EOQ using Wilson formula"""
-        annual_demand = self.avg_demand * 12  # Convert to annual
-        eoq = np.sqrt((2 * annual_demand * self.ordering_cost) / 
-                      (self.holding_cost_per_ton))
-        return eoq
+    def load_historical_stats(self, path):
+        """Load historical demand for statistics"""
+        try:
+            df = pd.read_excel(path)
+            demand = df['xlpe_demand_Million_tons'].dropna()
+            self.historical_mean = demand.mean()
+            self.historical_std = demand.std()
+        except:
+            print(f"⚠️  Could not load historical data, using AI uncertainty only")
+            self.historical_std = self.latest_forecast.get('Uncertainty_Sigma', 0.05)
     
-    def calculate_total_inventory_cost(self, order_quantity, safety_stock):
-        """Calculate total inventory cost"""
-        annual_demand = self.avg_demand * 12
+    def calculate_safety_stock(self, service_level=0.95, lead_time_days=30, 
+                               use_ai_uncertainty=True):
+        """
+        Calculate safety stock using YOUR AI's uncertainty or historical std dev.
         
-        # Ordering cost
-        num_orders = annual_demand / order_quantity
-        total_ordering_cost = num_orders * self.ordering_cost
+        Parameters:
+        -----------
+        service_level : float
+            Target service level (0.95 = 95%)
+        lead_time_days : int
+            Lead time in days
+        use_ai_uncertainty : bool
+            True: Use AI forecast uncertainty (recommended)
+            False: Use historical demand std dev
+        """
+        # Z-score for service level
+        z_score = stats.norm.ppf(service_level)
         
-        # Holding cost
-        avg_inventory = (order_quantity / 2) + safety_stock
-        total_holding_cost = avg_inventory * self.holding_cost_per_ton * 12
+        # Use AI uncertainty if available and requested
+        if use_ai_uncertainty and 'Uncertainty_Sigma' in self.latest_forecast:
+            demand_std = self.latest_forecast['Uncertainty_Sigma']
+            uncertainty_source = "AI Forecast Uncertainty"
+        else:
+            demand_std = self.historical_std
+            uncertainty_source = "Historical Demand Std Dev"
         
-        # Material cost
-        total_material_cost = annual_demand * self.material_cost_per_ton
+        # Convert lead time to months
+        lead_time_months = lead_time_days / 30.0
         
-        return {
-            'ordering_cost': total_ordering_cost,
-            'holding_cost': total_holding_cost,
-            'material_cost': total_material_cost,
-            'total_cost': total_ordering_cost + total_holding_cost + total_material_cost
-        }
-    
-    def optimize(self):
-        """Run optimization and return recommendations"""
-        safety_stock = self.calculate_safety_stock()
-        rop = self.calculate_reorder_point()
-        eoq = self.calculate_economic_order_quantity()
-        costs = self.calculate_total_inventory_cost(eoq, safety_stock)
-        
-        # Maximum inventory level
-        max_inventory = eoq + safety_stock
+        # Safety stock formula
+        safety_stock = z_score * demand_std * np.sqrt(lead_time_months)
         
         return {
             'safety_stock': safety_stock,
-            'reorder_point': rop,
-            'economic_order_quantity': eoq,
-            'max_inventory_level': max_inventory,
-            'costs': costs,
-            'service_level': self.service_level * 100
+            'z_score': z_score,
+            'demand_std': demand_std,
+            'lead_time_months': lead_time_months,
+            'uncertainty_source': uncertainty_source,
+            'service_level': service_level * 100
+        }
+    
+    def calculate_eoq(self, annual_demand, ordering_cost, holding_cost_per_unit):
+        """
+        Economic Order Quantity (EOQ) - standard formula.
+        
+        Parameters:
+        -----------
+        annual_demand : float
+            Annual demand in units
+        ordering_cost : float
+            Cost per order ($)
+        holding_cost_per_unit : float
+            Holding cost per unit per year ($/unit/year)
+        
+        Note: Convert holding cost to per year if needed
+        """
+        eoq = np.sqrt((2 * annual_demand * ordering_cost) / holding_cost_per_unit)
+        
+        return {
+            'eoq': eoq,
+            'annual_demand': annual_demand,
+            'ordering_cost': ordering_cost,
+            'holding_cost': holding_cost_per_unit,
+            'orders_per_year': annual_demand / eoq if eoq > 0 else 0,
+            'time_between_orders': 365 / (annual_demand / eoq) if eoq > 0 else 0
+        }
+    
+    def optimize(self, user_inputs):
+        """
+        Main optimization using YOUR AI forecasts + user inputs.
+        
+        Parameters:
+        -----------
+        user_inputs : dict
+            {
+                'material_cost': 2350,      # $/ton
+                'holding_cost': 75,         # $/ton/month
+                'ordering_cost': 7500,      # $/order
+                'stockout_cost': 1200,      # $/ton
+                'service_level': 0.95,      # 95%
+                'lead_time_days': 30        # days
+            }
+        """
+        print(f"\n{'='*80}")
+        print("RUNNING OPTIMIZATION WITH YOUR AI FORECASTS")
+        print(f"{'='*80}")
+        
+        # 1. Get YOUR AI forecast
+        ai_forecast = self.latest_forecast['Forecast']
+        print(f"📊 Using YOUR AI forecast: {ai_forecast:.6f} million tons/month")
+        
+        # 2. Calculate safety stock
+        safety_info = self.calculate_safety_stock(
+            service_level=user_inputs['service_level'],
+            lead_time_days=user_inputs['lead_time_days'],
+            use_ai_uncertainty=True
+        )
+        
+        print(f"✓ Safety stock: {safety_info['safety_stock']:.6f}M tons")
+        print(f"  (Using {safety_info['uncertainty_source']})")
+        
+        # 3. Calculate annual demand from AI forecast
+        monthly_demand = ai_forecast
+        annual_demand = monthly_demand * 12
+        
+        # 4. Calculate EOQ
+        # Convert holding cost to annual rate if needed
+        holding_cost_per_ton_year = user_inputs['holding_cost'] * 12
+        
+        eoq_info = self.calculate_eoq(
+            annual_demand=annual_demand,
+            ordering_cost=user_inputs['ordering_cost'],
+            holding_cost_per_unit=holding_cost_per_ton_year
+        )
+        
+        print(f"✓ EOQ: {eoq_info['eoq']:.6f}M tons")
+        print(f"  Orders/year: {eoq_info['orders_per_year']:.1f}")
+        
+        # 5. Calculate reorder point
+        lead_time_months = user_inputs['lead_time_days'] / 30.0
+        lead_time_demand = monthly_demand * lead_time_months
+        reorder_point = lead_time_demand + safety_info['safety_stock']
+        
+        # 6. Calculate costs
+        ordering_cost_total = eoq_info['orders_per_year'] * user_inputs['ordering_cost']
+        
+        avg_inventory = (eoq_info['eoq'] / 2) + safety_info['safety_stock']
+        holding_cost_total = avg_inventory * user_inputs['holding_cost'] * 12
+        
+        material_cost_total = annual_demand * user_inputs['material_cost']
+        
+        # Simplified stockout cost
+        stockout_probability = 1 - user_inputs['service_level']
+        expected_stockouts = self.historical_std * stockout_probability * np.sqrt(lead_time_months)
+        stockout_cost_total = expected_stockouts * user_inputs['stockout_cost'] * 12
+        
+        total_cost = ordering_cost_total + holding_cost_total + material_cost_total + stockout_cost_total
+        
+        # 7. Compile results
+        results = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'ai_forecast_used': {
+                'monthly_demand': ai_forecast,
+                'annual_demand': annual_demand,
+                'uncertainty_sigma': self.latest_forecast.get('Uncertainty_Sigma', 0),
+                'hedging_factor': self.latest_forecast.get('Hedging_Factor', 1.0)
+            },
+            'inventory_policy': {
+                'safety_stock': safety_info['safety_stock'],
+                'reorder_point': reorder_point,
+                'economic_order_quantity': eoq_info['eoq'],
+                'max_inventory_level': eoq_info['eoq'] + safety_info['safety_stock'],
+                'lead_time_demand': lead_time_demand,
+                'lead_time_days': user_inputs['lead_time_days']
+            },
+            'cost_analysis': {
+                'total_annual_cost': total_cost,
+                'ordering_cost': ordering_cost_total,
+                'holding_cost': holding_cost_total,
+                'material_cost': material_cost_total,
+                'stockout_cost': stockout_cost_total,
+                'avg_inventory': avg_inventory,
+                'orders_per_year': eoq_info['orders_per_year']
+            },
+            'performance_metrics': {
+                'service_level_percent': user_inputs['service_level'] * 100,
+                'inventory_turnover': annual_demand / avg_inventory if avg_inventory > 0 else 0,
+                'avg_inventory_cover_days': (avg_inventory / monthly_demand) * 30,
+                'expected_stockouts': expected_stockouts
+            },
+            'user_inputs_used': user_inputs,
+            'calculation_notes': {
+                'safety_stock_source': safety_info['uncertainty_source'],
+                'holding_cost_basis': 'per month, converted to annual for EOQ',
+                'demand_source': 'AI Ensemble Forecast'
+            }
+        }
+        
+        return results
+    
+    def run_what_if_scenario(self, base_inputs, scenario_changes):
+        """
+        Run what-if scenario analysis.
+        
+        Example:
+        --------
+        scenario_changes = {
+            'material_cost': 1.2,  # 20% increase
+            'holding_cost': 0.8    # 20% decrease
+        }
+        """
+        print(f"\n🔍 Running What-If Scenario")
+        
+        # Apply changes
+        scenario_inputs = base_inputs.copy()
+        for key, multiplier in scenario_changes.items():
+            if key in scenario_inputs and key != 'service_level':
+                scenario_inputs[key] = scenario_inputs[key] * multiplier
+            elif key == 'service_level':
+                scenario_inputs[key] = scenario_inputs[key] * multiplier
+        
+        # Run optimization
+        scenario_results = self.optimize(scenario_inputs)
+        
+        return {
+            'scenario_changes': scenario_changes,
+            'results': scenario_results
+        }
+    
+    def save_results(self, results, output_dir='outputs'):
+        """Save optimization results"""
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Save JSON
+        json_path = os.path.join(output_dir, 'inventory_recommendations.json')
+        with open(json_path, 'w') as f:
+            json.dump(results, f, indent=4)
+        
+        # Save summary CSV
+        summary_data = {
+            'Metric': [
+                'AI Monthly Forecast (M tons)',
+                'AI Uncertainty (σ)',
+                'Safety Stock (M tons)',
+                'Reorder Point (M tons)',
+                'EOQ (M tons)',
+                'Total Annual Cost ($)',
+                'Service Level (%)',
+                'Orders per Year',
+                'Avg Inventory (M tons)'
+            ],
+            'Value': [
+                results['ai_forecast_used']['monthly_demand'],
+                results['ai_forecast_used']['uncertainty_sigma'],
+                results['inventory_policy']['safety_stock'],
+                results['inventory_policy']['reorder_point'],
+                results['inventory_policy']['economic_order_quantity'],
+                results['cost_analysis']['total_annual_cost'],
+                results['performance_metrics']['service_level_percent'],
+                results['cost_analysis']['orders_per_year'],
+                results['cost_analysis']['avg_inventory']
+            ]
+        }
+        
+        summary_df = pd.DataFrame(summary_data)
+        csv_path = os.path.join(output_dir, 'inventory_summary.csv')
+        summary_df.to_csv(csv_path, index=False)
+        
+        print(f"\n✅ Results saved:")
+        print(f"  • {json_path}")
+        print(f"  • {csv_path}")
+        
+        return {
+            'json': json_path,
+            'csv': csv_path
         }
 
-# Run optimization
-optimizer = InventoryOptimizer(
-    avg_demand=avg_demand,
-    std_demand=std_demand,
-    lead_time_days=30,
-    service_level=0.95
-)
-
-results = optimizer.optimize()
-
-print(f"\n{'='*80}")
-print("INVENTORY OPTIMIZATION RESULTS")
-print(f"{'='*80}")
-print(f"\nKey Inventory Metrics:")
-print(f"  Safety Stock: {results['safety_stock']:.6f} million tons ({results['safety_stock']*1000:.2f} tons)")
-print(f"  Reorder Point: {results['reorder_point']:.6f} million tons ({results['reorder_point']*1000:.2f} tons)")
-print(f"  Economic Order Quantity (EOQ): {results['economic_order_quantity']:.6f} million tons ({results['economic_order_quantity']*1000:.2f} tons)")
-print(f"  Maximum Inventory Level: {results['max_inventory_level']:.6f} million tons ({results['max_inventory_level']*1000:.2f} tons)")
-print(f"  Target Service Level: {results['service_level']:.1f}%")
-
-print(f"\nAnnual Cost Analysis:")
-print(f"  Ordering Cost: ${results['costs']['ordering_cost']:,.2f}")
-print(f"  Holding Cost: ${results['costs']['holding_cost']:,.2f}")
-print(f"  Material Cost: ${results['costs']['material_cost']:,.2f}")
-print(f"  Total Annual Cost: ${results['costs']['total_cost']:,.2f}")
-
-# Simulate inventory levels over time with forecasted demand
-print(f"\n{'='*80}")
-print("INVENTORY SIMULATION - NEXT 12 MONTHS")
-print(f"{'='*80}")
-
-# Use latest data point for next month forecast
-X_features = df_clean.drop(columns=['xlpe_demand_Million_tons'])
-latest_features = X_features.iloc[-1:].copy()
-
-# Generate forecasts for next 12 months (with slight variations)
-forecast_months = []
-inventory_levels = []
-current_inventory = results['max_inventory_level']  # Start with max inventory
-
-for month in range(1, 13):
-    # Simulate demand for the month (no model prediction)
-    demand_variation = np.random.normal(0, std_demand * 0.1)
-    adjusted_demand = max(0, avg_demand + demand_variation)
+# Example usage
+if __name__ == "__main__":
+    print("\n" + "="*80)
+    print("="*80)
     
-    # Check if reorder needed
-    if current_inventory <= results['reorder_point']:
-        order_quantity = results['economic_order_quantity']
-        current_inventory += order_quantity
-        reorder_flag = True
-    else:
-        reorder_flag = False
+    # Create optimizer (uses YOUR existing forecasts)
+    optimizer = InventoryOptimizer()
     
-    # Subtract demand
-    current_inventory -= adjusted_demand
-    
-    # Ensure non-negative
-    stockout = max(0, -current_inventory)
-    current_inventory = max(0, current_inventory)
-    
-    forecast_months.append({
-        'Month': month,
-        'Forecasted_Demand': adjusted_demand,
-        'Starting_Inventory': current_inventory + adjusted_demand,
-        'Ending_Inventory': current_inventory,
-        'Reorder_Triggered': reorder_flag,
-        'Order_Quantity': order_quantity if reorder_flag else 0,
-        'Stockout': stockout
-    })
-    
-    inventory_levels.append(current_inventory)
-
-forecast_df = pd.DataFrame(forecast_months)
-forecast_df.to_csv('outputs/inventory_forecast_12months.csv', index=False)
-
-print(forecast_df.to_string(index=False))
-
-# Calculate performance metrics
-total_stockouts = forecast_df['Stockout'].sum()
-total_orders = forecast_df['Reorder_Triggered'].sum()
-avg_inventory = forecast_df['Ending_Inventory'].mean()
-
-print(f"\n{'='*80}")
-print("SIMULATION RESULTS (12 Months)")
-print(f"{'='*80}")
-print(f"  Average Inventory Level: {avg_inventory:.6f} million tons")
-print(f"  Total Number of Orders: {total_orders}")
-print(f"  Total Stockouts: {total_stockouts:.6f} million tons")
-print(f"  Service Level Achieved: {((1 - total_stockouts/forecast_df['Forecasted_Demand'].sum())*100):.2f}%")
-
-# Save optimization results
-optimization_summary = {
-    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-    'safety_stock_million_tons': float(results['safety_stock']),
-    'safety_stock_tons': float(results['safety_stock'] * 1000),
-    'reorder_point_million_tons': float(results['reorder_point']),
-    'reorder_point_tons': float(results['reorder_point'] * 1000),
-    'eoq_million_tons': float(results['economic_order_quantity']),
-    'eoq_tons': float(results['economic_order_quantity'] * 1000),
-    'max_inventory_million_tons': float(results['max_inventory_level']),
-    'max_inventory_tons': float(results['max_inventory_level'] * 1000),
-    'service_level_percent': float(results['service_level']),
-    'annual_costs': {k: float(v) for k, v in results['costs'].items()},
-    'simulation_12months': {
-        'avg_inventory_million_tons': float(avg_inventory),
-        'total_orders': int(total_orders),
-        'total_stockouts_million_tons': float(total_stockouts),
-        'service_level_achieved': float((1 - total_stockouts/forecast_df['Forecasted_Demand'].sum())*100)
+    # Example user inputs (from dashboard)
+    example_inputs = {
+        'material_cost': 2350,      # $/ton
+        'holding_cost': 75,         # $/ton/month
+        'ordering_cost': 7500,      # $/order
+        'stockout_cost': 1200,      # $/ton
+        'service_level': 0.95,      # 95%
+        'lead_time_days': 30        # days
     }
-}
-
-with open('outputs/inventory_optimization_results.json', 'w') as f:
-    json.dump(optimization_summary, f, indent=4)
-
-# Visualization
-print("\nGenerating inventory visualization...")
-
-# 1. Inventory Level Simulation
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
-
-# Plot 1: Inventory levels over time
-ax1.plot(forecast_df['Month'], forecast_df['Ending_Inventory'], 'b-', linewidth=2, marker='o', label='Inventory Level')
-ax1.axhline(y=results['reorder_point'], color='r', linestyle='--', linewidth=2, label=f'Reorder Point ({results["reorder_point"]:.4f})')
-ax1.axhline(y=results['safety_stock'], color='orange', linestyle='--', linewidth=2, label=f'Safety Stock ({results["safety_stock"]:.4f})')
-ax1.fill_between(forecast_df['Month'], 0, results['safety_stock'], alpha=0.2, color='orange')
-ax1.set_xlabel('Month', fontsize=12, fontweight='bold')
-ax1.set_ylabel('Inventory Level (Million Tons)', fontsize=12, fontweight='bold')
-ax1.set_title('Inventory Level Simulation - Next 12 Months', fontsize=14, fontweight='bold')
-ax1.legend()
-ax1.grid(True, alpha=0.3)
-
-# Plot 2: Demand vs Inventory
-ax2.plot(forecast_df['Month'], forecast_df['Forecasted_Demand'], 'g-', linewidth=2, marker='s', label='Forecasted Demand')
-ax2.plot(forecast_df['Month'], forecast_df['Ending_Inventory'], 'b-', linewidth=2, marker='o', label='Ending Inventory')
-ax2.set_xlabel('Month', fontsize=12, fontweight='bold')
-ax2.set_ylabel('Million Tons', fontsize=12, fontweight='bold')
-ax2.set_title('Demand vs Inventory', fontsize=14, fontweight='bold')
-ax2.legend()
-ax2.grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.savefig('outputs/inventory_simulation.png', dpi=300)
-plt.close()
-
-# 2. Cost breakdown pie chart
-fig, ax = plt.subplots(figsize=(10, 8))
-cost_labels = ['Ordering Cost', 'Holding Cost', 'Material Cost']
-cost_values = [
-    results['costs']['ordering_cost'],
-    results['costs']['holding_cost'],
-    results['costs']['material_cost']
-]
-colors = ['#ff9999', '#66b3ff', '#99ff99']
-explode = (0.05, 0.05, 0.05)
-
-ax.pie(cost_values, explode=explode, labels=cost_labels, colors=colors,
-       autopct='%1.1f%%', shadow=True, startangle=90, textprops={'fontsize': 12, 'fontweight': 'bold'})
-ax.set_title('Annual Inventory Cost Breakdown', fontsize=14, fontweight='bold', pad=20)
-plt.tight_layout()
-plt.savefig('outputs/cost_breakdown.png', dpi=300)
-plt.close()
-
-print("\nInventory optimization complete!")
-print("\nOutputs saved:")
-print("  - outputs/inventory_optimization_results.json")
-print("  - outputs/inventory_forecast_12months.csv")
-print("  - outputs/inventory_simulation.png")
-print("  - outputs/cost_breakdown.png")
-
-print("\n" + "="*80)
-print("INVENTORY OPTIMIZATION COMPLETE")
-print("="*80)
+    
+    # Run optimization using YOUR AI forecasts
+    results = optimizer.optimize(example_inputs)
+    
+    # Save results
+    optimizer.save_results(results)
+    
+    print(f"\n📊 KEY RECOMMENDATIONS:")
+    print(f"  Safety Stock: {results['inventory_policy']['safety_stock']:.4f}M tons")
+    print(f"  Reorder Point: {results['inventory_policy']['reorder_point']:.4f}M tons")
+    print(f"  EOQ: {results['inventory_policy']['economic_order_quantity']:.4f}M tons")
+    print(f"  Total Cost: ${results['cost_analysis']['total_annual_cost']:,.0f}")
+    

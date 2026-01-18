@@ -63,7 +63,7 @@ st.sidebar.info("""
 **ARABCAB AI Competition**  
 AI-Based Demand Forecasting for Cable Industry  
 **Innovation:** Infrastructure Scenario Forecasting  
-Egypt • Bahrain • UAE
+MENA region
 """)
 
 # Load data
@@ -671,45 +671,337 @@ elif page == "Infrastructure Scenario":
 # ====================
 # PAGE: INVENTORY OPTIMIZATION
 # ====================
+# In your Streamlit dashboard, REPLACE the Inventory Optimization page with:
+
 elif page == "Inventory Optimization":
-    st.header("📦 Interactive Inventory Optimization Scenario Tool")
-    # User parameters
-    service_level = st.slider("Target Service Level (%)", min_value=80, max_value=99, value=95)
-    lead_time_days = st.number_input("Lead Time (days)", value=30)
-    holding_cost = st.number_input("Holding Cost Per Ton ($)", value=50)
-    ordering_cost = st.number_input("Ordering Cost Per Order ($)", value=5000)
-    stockout_cost = st.number_input("Stockout Cost Per Ton ($)", value=500)
-    material_cost = st.number_input("Material Cost Per Ton ($)", value=2000)
-
-    # Calculate avg_demand and std_demand from historical data
-    avg_demand = data['historical_data']['xlpe_demand_Million_tons'].mean()
-    std_demand = data['historical_data']['xlpe_demand_Million_tons'].std()
-
-    # Pass these into InventoryOptimizer instance
-    optimizer = InventoryOptimizer(
-        avg_demand=avg_demand,  # from your historical stats
-        std_demand=std_demand,
-        lead_time_days=lead_time_days,
-        service_level=service_level/100.0
-    )
-    optimizer.holding_cost_per_ton = holding_cost
-    optimizer.ordering_cost = ordering_cost
-    optimizer.stockout_cost_per_ton = stockout_cost
-    optimizer.material_cost_per_ton = material_cost
-
-    safety_stock = optimizer.calculate_safety_stock()
-    rop = optimizer.calculate_reorder_point()
-    eoq = optimizer.calculate_economic_order_quantity()
-    total_cost_dict = optimizer.calculate_total_inventory_cost(eoq, safety_stock)
-    total_cost = total_cost_dict['total_cost']
-
-    st.markdown(f"""
-    **Calculated Optimization Results:**
-    - Safety Stock: `{safety_stock:.2f}` tons
-    - Reorder Point: `{rop:.2f}` tons
-    - Economic Order Quantity (EOQ): `{eoq:.2f}` tons/order
-    - **Total Inventory Cost:** `${total_cost:,.2f}`
+    st.header("📦 AI-Driven Inventory Optimization")
+    
+    st.info("""
+    **Industry-Ready Optimization:** Enter actual costs from your operations.
+    These should be validated with industry partners (Midal, Ducab, Elsewedy).
     """)
+    
+    # ===== USER INPUTS FROM DASHBOARD =====
+    st.subheader("🏭 Enter Industry Cost Parameters")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        material_cost = st.number_input(
+            "XLPE Material Cost ($/ton)",
+            min_value=1000,
+            max_value=5000,
+            value=2350,
+            help="Current market price of XLPE"
+        )
+    
+    with col2:
+        holding_cost = st.number_input(
+            "Storage/Holding Cost ($/ton/month)",
+            min_value=10,
+            max_value=200,
+            value=75,
+            help="Warehousing, insurance, capital costs per ton per month"
+        )
+    
+    with col3:
+        ordering_cost = st.number_input(
+            "Order Processing Cost ($/order)",
+            min_value=1000,
+            max_value=20000,
+            value=7500,
+            help="Procurement paperwork, quality checks, logistics"
+        )
+    
+    col4, col5, col6 = st.columns(3)
+    
+    with col4:
+        stockout_cost = st.number_input(
+            "Stockout Penalty ($/ton)",
+            min_value=100,
+            max_value=5000,
+            value=1200,
+            help="Cost of production delays, missed contracts, emergency shipping"
+        )
+    
+    with col5:
+        service_level = st.slider(
+            "Target Service Level (%)",
+            min_value=80,
+            max_value=99,
+            value=95,
+            help="Probability of not having a stockout"
+        ) / 100.0  # Convert to decimal
+    
+    with col6:
+        lead_time_days = st.number_input(
+            "Lead Time (days)",
+            min_value=7,
+            max_value=90,
+            value=30,
+            help="Time from order to delivery"
+        )
+    
+    # ===== RUN OPTIMIZATION =====
+    if st.button("🚀 Run Inventory Optimization", type="primary"):
+        with st.spinner("Calculating optimal inventory policy..."):
+            try:
+                # ===== 1. CREATE OPTIMIZER =====
+                optimizer = InventoryOptimizer(
+                    forecast_path='outputs/Ensemble_Risk_Analysis.csv',
+                    historical_path='historical_xlpe_demand.xlsx'
+                )
+                
+                # ===== 2. PREPARE USER INPUTS =====
+                user_inputs = {
+                    'material_cost': material_cost,
+                    'holding_cost': holding_cost,
+                    'ordering_cost': ordering_cost,
+                    'stockout_cost': stockout_cost,
+                    'service_level': service_level,  # Already divided by 100
+                    'lead_time_days': lead_time_days
+                }
+                
+                # ===== 3. RUN OPTIMIZATION =====
+                results = optimizer.optimize(user_inputs)
+                
+                # ===== 4. DISPLAY RESULTS =====
+                st.success("✅ Optimization Complete!")
+                
+                # Key Metrics
+                st.subheader("📊 Optimal Inventory Policy")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    safety_mt = results['inventory_policy']['safety_stock']
+                    st.metric(
+                        "Safety Stock",
+                        f"{safety_mt:.4f} M tons",
+                        f"{safety_mt*1000:.0f} tons"
+                    )
+                
+                with col2:
+                    rop_mt = results['inventory_policy']['reorder_point']
+                    st.metric(
+                        "Reorder Point",
+                        f"{rop_mt:.4f} M tons",
+                        f"{rop_mt*1000:.0f} tons"
+                    )
+                
+                with col3:
+                    eoq_mt = results['inventory_policy']['economic_order_quantity']
+                    st.metric(
+                        "EOQ",
+                        f"{eoq_mt:.4f} M tons",
+                        f"{eoq_mt*1000:.0f} tons"
+                    )
+                
+                with col4:
+                    total_cost = results['cost_analysis']['total_annual_cost']
+                    st.metric(
+                        "Annual Cost",
+                        f"${total_cost:,.0f}",
+                        "Total"
+                    )
+                
+                # Cost Breakdown
+                st.markdown("---")
+                st.subheader("💰 Cost Breakdown")
+                
+                costs = results['cost_analysis']
+                
+                fig = go.Figure(data=[go.Pie(
+                    labels=['Ordering', 'Holding', 'Material', 'Stockout Risk'],
+                    values=[
+                        costs['ordering_cost'],
+                        costs['holding_cost'], 
+                        costs['material_cost'],
+                        costs['stockout_cost']
+                    ],
+                    hole=.3,
+                    marker_colors=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
+                )])
+                
+                fig.update_layout(
+                    title="Annual Inventory Cost Distribution",
+                    height=400
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Cost Details
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**Cost Details:**")
+                    st.markdown(f"- **Ordering:** ${costs['ordering_cost']:,.0f}")
+                    st.markdown(f"- **Holding:** ${costs['holding_cost']:,.0f}")
+                    st.markdown(f"- **Material:** ${costs['material_cost']:,.0f}")
+                    st.markdown(f"- **Stockout Risk:** ${costs['stockout_cost']:,.0f}")
+                    st.markdown(f"---")
+                    st.markdown(f"### **Total: ${costs['total_annual_cost']:,.0f}**")
+                
+                with col2:
+                    st.markdown("**Performance Metrics:**")
+                    st.markdown(f"- **Service Level:** {results['performance_metrics']['service_level_percent']:.1f}%")
+                    st.markdown(f"- **Orders/Year:** {costs['orders_per_year']:.1f}")
+                    st.markdown(f"- **Avg Inventory:** {costs['avg_inventory']:.4f} M tons")
+                    st.markdown(f"- **Inventory Turnover:** {results['performance_metrics']['inventory_turnover']:.2f}")
+                    st.markdown(f"- **Avg Cover Days:** {results['performance_metrics']['avg_inventory_cover_days']:.1f} days")
+                
+                # Forecast Information
+                st.markdown("---")
+                st.subheader("🔮 AI Forecast Information")
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric(
+                        "Monthly Demand Forecast",
+                        f"{results['ai_forecast_used']['monthly_demand']:.4f} M tons",
+                        "From AI Ensemble"
+                    )
+                
+                with col2:
+                    st.metric(
+                        "AI Uncertainty (σ)",
+                        f"{results['ai_forecast_used']['uncertainty_sigma']:.6f}",
+                        "Used for safety stock"
+                    )
+                
+                with col3:
+                    if results['ai_forecast_used'].get('hedging_factor', 1.0) != 1.0:
+                        st.metric(
+                            "Hedging Adjustment",
+                            f"{results['ai_forecast_used']['hedging_factor']:.2f}x",
+                            "Price-based"
+                        )
+                    else:
+                        st.metric(
+                            "Lead Time Demand",
+                            f"{results['inventory_policy']['lead_time_demand']:.4f} M tons",
+                            f"{results['inventory_policy']['lead_time_days']} days"
+                        )
+                
+                # What-If Scenarios
+                st.markdown("---")
+                st.subheader("🔍 What-If Scenario Analysis")
+                
+                scenario_col1, scenario_col2, scenario_col3 = st.columns(3)
+                
+                with scenario_col1:
+                    if st.button("Test +20% Material Price", key="price_up"):
+                        with st.spinner("Running scenario..."):
+                            scenario_results = optimizer.run_what_if_scenario(
+                                user_inputs,
+                                {'material_cost': 1.2}
+                            )
+                            new_cost = scenario_results['results']['cost_analysis']['total_annual_cost']
+                            old_cost = results['cost_analysis']['total_annual_cost']
+                            change = ((new_cost - old_cost) / old_cost) * 100
+                            st.success(f"New cost: ${new_cost:,.0f} ({change:+.1f}%)")
+                
+                with scenario_col2:
+                    if st.button("Test -20% Storage Cost", key="storage_down"):
+                        with st.spinner("Running scenario..."):
+                            scenario_results = optimizer.run_what_if_scenario(
+                                user_inputs,
+                                {'holding_cost': 0.8}
+                            )
+                            new_cost = scenario_results['results']['cost_analysis']['total_annual_cost']
+                            old_cost = results['cost_analysis']['total_annual_cost']
+                            change = ((new_cost - old_cost) / old_cost) * 100
+                            st.success(f"New cost: ${new_cost:,.0f} ({change:+.1f}%)")
+                
+                with scenario_col3:
+                    if st.button("Test +50% Order Cost", key="order_up"):
+                        with st.spinner("Running scenario..."):
+                            scenario_results = optimizer.run_what_if_scenario(
+                                user_inputs,
+                                {'ordering_cost': 1.5}
+                            )
+                            new_eoq = scenario_results['results']['inventory_policy']['economic_order_quantity']
+                            old_eoq = results['inventory_policy']['economic_order_quantity']
+                            change = ((new_eoq - old_eoq) / old_eoq) * 100
+                            st.success(f"New EOQ: {new_eoq:.4f}M ({change:+.1f}%)")
+                
+                # Download Results
+                st.markdown("---")
+                st.subheader("📥 Download Results")
+                
+                # Convert results to JSON
+                results_json = json.dumps(results, indent=4)
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.download_button(
+                        label="📄 Download Full Results (JSON)",
+                        data=results_json,
+                        file_name="inventory_optimization_results.json",
+                        mime="application/json"
+                    )
+                
+                with col2:
+                    # Save via optimizer
+                    saved_files = optimizer.save_results(results)
+                    st.info(f"Results saved to:\n{saved_files['json']}\n{saved_files['csv']}")
+                
+                # Technical Details (Collapsible)
+                with st.expander("🔧 Technical Details"):
+                    st.json(results['calculation_notes'])
+                    st.markdown(f"**Uncertainty Source:** {results['calculation_notes']['safety_stock_source']}")
+                    st.markdown(f"**Demand Source:** {results['calculation_notes']['demand_source']}")
+                    
+            except FileNotFoundError as e:
+                st.error(f"❌ Required file not found: {e}")
+                st.info("""
+                **Please run these steps first:**
+                1. Run `Models_Advanced.py` to generate AI forecasts
+                2. Ensure `outputs/Ensemble_Risk_Analysis.csv` exists
+                3. Ensure `historical_xlpe_demand.xlsx` is in the same folder
+                """)
+                
+            except Exception as e:
+                st.error(f"Error during optimization: {str(e)}")
+                st.info("Check that all required files are generated and paths are correct.")
+
+    # ===== DEFAULT VIEW (BEFORE OPTIMIZATION) =====
+    else:
+        st.markdown("---")
+        st.subheader("ℹ️ How It Works")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            **Inventory Optimization Process:**
+            1. **Loads your AI forecasts** from Ensemble model
+            2. **Uses AI uncertainty** for safety stock calculations
+            3. **Applies your cost inputs** to EOQ formula
+            4. **Generates actionable recommendations**
+            
+            **No new forecasting** - uses your existing 98.6% accurate AI predictions.
+            """)
+        
+        with col2:
+            st.markdown("""
+            **What You'll Get:**
+            - ✅ **Safety Stock:** Buffer for demand uncertainty
+            - ✅ **Reorder Point:** When to place new orders
+            - ✅ **EOQ:** Optimal order quantity
+            - ✅ **Cost Analysis:** Breakdown of all inventory costs
+            - ✅ **What-If Scenarios:** Test price changes
+            - ✅ **Downloadable Reports:** For stakeholders
+            """)
+        
+        st.warning("""
+        **Prerequisites:**
+        - Run `Models_Advanced.py` first to generate AI forecasts
+        - The optimizer uses `Ensemble_Risk_Analysis.csv` for predictions
+        - All calculations use YOUR actual data (no assumptions)
+        """)
 
     # Optionally: plot cost curves, let user simulate more scenarios, etc.
 # ====================
