@@ -1,0 +1,10 @@
+Metric,Value
+AI Monthly Forecast (M tons),0.3214579363554932
+AI Uncertainty (σ),0.0026850272943427
+Safety Stock (M tons),0.004416476883563288
+Reorder Point (M tons),0.32587441323905647
+EOQ (M tons),8.018203493994065
+Total Annual Cost ($),16307.85496508146
+Service Level (%),95.0
+Orders per Year,0.48109220963964394
+Avg Inventory (M tons),4.013518223880596
