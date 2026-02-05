@@ -11,6 +11,55 @@ import os
 # Import InventoryOptimizer for inventory optimization functionality
 from inventory_optimization import InventoryOptimizer
 
+# Function to check and generate required files on Streamlit Cloud
+def ensure_output_files_exist():
+    """Check if required output files exist, generate them if not (for Streamlit Cloud deployment)"""
+    required_files = [
+        'outputs/model_comparison_results.csv',
+        'outputs/inventory_recommendations.json',
+        'outputs/model_metadata.json',
+        'outputs/best_pipeline.pkl'
+    ]
+    
+    # Check if any required file is missing
+    missing_files = [f for f in required_files if not os.path.exists(f)]
+    
+    if missing_files:
+        # Create outputs directory if it doesn't exist
+        os.makedirs('outputs', exist_ok=True)
+        
+        st.info("🔄 First-time setup: Generating model files... This may take a minute.")
+        
+        # Run Models_Advanced.py
+        try:
+            import subprocess
+            import sys
+            
+            # Run model training
+            with st.spinner("Training ML models..."):
+                result = subprocess.run([sys.executable, 'Models_Advanced.py'], 
+                                       capture_output=True, text=True, timeout=300)
+                if result.returncode != 0:
+                    st.error(f"Model training error: {result.stderr}")
+                    return False
+            
+            # Run inventory optimization
+            with st.spinner("Running inventory optimization..."):
+                result = subprocess.run([sys.executable, 'inventory_optimization.py'], 
+                                       capture_output=True, text=True, timeout=120)
+                if result.returncode != 0:
+                    st.error(f"Inventory optimization error: {result.stderr}")
+                    return False
+            
+            st.success("✅ Setup complete! Reloading dashboard...")
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"Setup error: {e}")
+            return False
+    
+    return True
+
 # Page configuration
 st.set_page_config(
     page_title="XLPE Demand Forecasting Dashboard",
@@ -52,6 +101,10 @@ st.markdown("""
 st.markdown('<div class="main-header">🔮 XLPE Demand Forecasting & Inventory Optimization Dashboard</div>', 
             unsafe_allow_html=True)
 
+# Ensure output files exist (for Streamlit Cloud deployment)
+if not ensure_output_files_exist():
+    st.stop()
+
 # Sidebar
 st.sidebar.title("📋 Navigation")
 page = st.sidebar.radio("Go to", 
@@ -73,15 +126,15 @@ def load_data():
         # Model results
         model_results = pd.read_csv('outputs/model_comparison_results.csv')
         
-        # Inventory optimization
-        with open('outputs/inventory_recommendations.json', 'r') as f:
+        # Inventory optimization - use UTF-8 encoding explicitly
+        with open('outputs/inventory_recommendations.json', 'r', encoding='utf-8') as f:
             inventory_results = json.load(f)
         
         # Inventory forecast
         inventory_forecast = pd.read_csv('outputs/inventory_summary.csv')
         
-        # Metadata
-        with open('outputs/model_metadata.json', 'r') as f:
+        # Metadata - use UTF-8 encoding explicitly
+        with open('outputs/model_metadata.json', 'r', encoding='utf-8') as f:
             metadata = json.load(f)
         
         # Best pipeline (updated from best_model.pkl)
@@ -116,7 +169,22 @@ def load_data():
         }
     except Exception as e:
         st.error(f"Error loading data: {e}")
-        st.info("Please run Models_Advanced.py and inventory_optimization.py first to generate required files.")
+        st.info("Attempting to regenerate files...")
+        
+        # Try to regenerate files
+        if st.button("🔄 Regenerate Model Files"):
+            import subprocess
+            import sys
+            with st.spinner("Regenerating files..."):
+                try:
+                    subprocess.run([sys.executable, 'Models_Advanced.py'], 
+                                  capture_output=True, text=True, timeout=300)
+                    subprocess.run([sys.executable, 'inventory_optimization.py'], 
+                                  capture_output=True, text=True, timeout=120)
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as regen_error:
+                    st.error(f"Regeneration failed: {regen_error}")
         return None
 
 data = load_data()
