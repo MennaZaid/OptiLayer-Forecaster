@@ -10,7 +10,7 @@ Source: ngoclancable.com (medium-voltage XLPE cables)
 
 FORECAST RESULTS:
 --------------------------------------------------------------------------------
-Model: Ensemble (Top 3)
+Model: Ensemble
 Forecast Accuracy: 98.60%
 
 Base XLPE Demand (from model): 0.388848 million tons

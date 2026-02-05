@@ -74,11 +74,11 @@ def load_data():
         model_results = pd.read_csv('outputs/model_comparison_results.csv')
         
         # Inventory optimization
-        with open('outputs/inventory_optimization_results.json', 'r') as f:
+        with open('outputs/inventory_recommendations.json', 'r') as f:
             inventory_results = json.load(f)
         
         # Inventory forecast
-        inventory_forecast = pd.read_csv('outputs/inventory_forecast_12months.csv')
+        inventory_forecast = pd.read_csv('outputs/inventory_summary.csv')
         
         # Metadata
         with open('outputs/model_metadata.json', 'r') as f:
@@ -157,15 +157,15 @@ if page == "Overview":
         else:
             st.metric(
                 label="Service Level",
-                value=f"{data['inventory_results']['service_level_percent']:.1f}%",
+                value=f"{data['inventory_results']['performance_metrics']['service_level_percent']:.1f}%",
                 delta="Target Met"
             )
     
     with col4:
-        annual_cost = data['inventory_results']['annual_costs']['total_cost']
+        annual_cost = data['inventory_results']['cost_analysis']['total_annual_cost']
         st.metric(
             label="Annual Inventory Cost",
-            value=f"${annual_cost/1000000:.2f}M",
+            value=f"${annual_cost/1000:.2f}K",
             delta="Optimized"
         )
     
@@ -1200,10 +1200,10 @@ elif page == "Forecasting Tool":
             
             with col3:
                 # Check inventory recommendation
-                if base_prediction < data['inventory_results']['safety_stock_million_tons']:
+                if base_prediction < data['inventory_results']['inventory_policy']['safety_stock']:
                     recommendation = "✅ Current stock sufficient"
                     st.metric("Inventory Status", "SAFE", delta=recommendation)
-                elif base_prediction < data['inventory_results']['reorder_point_million_tons']:
+                elif base_prediction < data['inventory_results']['inventory_policy']['reorder_point']:
                     recommendation = "⚠️ Monitor closely"
                     st.metric("Inventory Status", "WATCH", delta=recommendation)
                 else:
@@ -1360,7 +1360,7 @@ elif page == "About":
        - Inventory optimization report ($18-73M savings)
        - Infrastructure scenario report (2026 forecast: $1.9B opportunity)
        - Risk analysis report (uncertainty quantification)
-       - Feature importance report (GDP, price, electricity top 3)
+       - Feature importance report (GDP, price, electricity)
     
     4. **Interactive Dashboard**
        - Real-time forecasting tool

@@ -650,7 +650,7 @@ else:
 
 # Add ensemble to results
 results.append({
-    'Model': 'Ensemble (Top 3)',
+    'Model': 'Ensemble',
     'Forecast Accuracy (%)': round(forecast_accuracy_ensemble, 2),
     'MAE (million tons)': round(mae_ensemble, 6),
     'RMSE (million tons)': round(np.sqrt(mean_squared_error(y_test, y_pred_ensemble)), 6),
@@ -663,7 +663,7 @@ results.append({
 # Update best model if ensemble is better
 if forecast_accuracy_ensemble > best_accuracy:
     best_pipeline = ensemble_pipeline
-    best_model_name = 'Ensemble (Top 3)'
+    best_model_name = 'Ensemble'
     best_accuracy = forecast_accuracy_ensemble
 
 # Save results summary
@@ -698,8 +698,8 @@ metadata = {
     'train_size': len(X_train),
     'test_size': len(X_test),
     'total_models_evaluated': len(models) + 1,  # +1 for ensemble
-    'ensemble_members': selected_models if best_model_name == 'Ensemble (Top 3)' else [],
-    'ensemble_weights': {name: weight for name, weight in zip(selected_models, model_weights)} if best_model_name == 'Ensemble (Top 3)' else {},
+    'ensemble_members': selected_models if best_model_name == 'Ensemble' else [],
+    'ensemble_weights': {name: weight for name, weight in zip(selected_models, model_weights)} if best_model_name == 'Ensemble' else {},
     'preprocessing': 'StandardScaler (inside pipeline)',
     'innovation': 'Scikit-learn Pipelines + Optimized Selective Ensemble with Exponential Weights'
 }
@@ -982,7 +982,7 @@ plt.savefig('outputs/best_model_analysis.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 # 3. Feature Importance (if applicable)
-if best_model_name == 'Ensemble (Top 3)':
+if best_model_name == 'Ensemble':
     # For ensemble of pipelines, we can't easily extract feature importance
     print("✓ Ensemble pipeline - combined predictions from top 3 models")
 elif hasattr(best_pipeline.named_steps['model'], 'feature_importances_'):
@@ -1004,7 +1004,7 @@ elif hasattr(best_pipeline.named_steps['model'], 'feature_importances_'):
     print("✓ Feature importance analysis saved")
 
 # 4. Learning Curves (for best single model, not ensemble)
-if best_model_name != 'Ensemble (Top 3)':
+if best_model_name != 'Ensemble':
     from sklearn.model_selection import learning_curve
     
     print("Generating learning curves (this may take a moment)...")
