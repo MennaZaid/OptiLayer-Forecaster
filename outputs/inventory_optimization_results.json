@@ -1,0 +1,24 @@
+{
+    "timestamp": "2026-01-18 01:01:04",
+    "safety_stock_million_tons": 0.05113481220072316,
+    "safety_stock_tons": 51.13481220072316,
+    "reorder_point_million_tons": 0.31748096604687703,
+    "reorder_point_tons": 317.48096604687703,
+    "eoq_million_tons": 25.283013452331375,
+    "eoq_tons": 25283.013452331375,
+    "max_inventory_million_tons": 25.334148264532097,
+    "max_inventory_tons": 25334.148264532098,
+    "service_level_percent": 95.0,
+    "annual_costs": {
+        "ordering_cost": 632.0753363082844,
+        "holding_cost": 7615.584923019846,
+        "material_cost": 6392.307692307692,
+        "total_cost": 14639.967951635823
+    },
+    "simulation_12months": {
+        "avg_inventory_million_tons": 23.59384784270712,
+        "total_orders": 0,
+        "total_stockouts_million_tons": 0.0,
+        "service_level_achieved": 100.0
+    }
+}
